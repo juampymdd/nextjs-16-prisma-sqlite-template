@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
+ 
 
-export function GET() {
+export function GET(request: Request) {
+
     return NextResponse.json({ message: "Obteniendo Tareas" });
 }
 
 
-export function POST() {
+export function POST(request: Request) {
     return NextResponse.json({ message: "Creando Tarea" });
 }
 
-export function PUT() {
-    return NextResponse.json({ message: "Actualizando Tarea" });
-}
 
-export function DELETE() {
-    return NextResponse.json({ message: "Eliminando Tarea" });
-}
