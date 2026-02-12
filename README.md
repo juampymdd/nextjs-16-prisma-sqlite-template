@@ -2,7 +2,7 @@
 
 # Create Next.js App with bun 
 ```bash
-bun create next . --typescript
+bun create next .
 ```
 
 # Install Prisma and its dependencies
