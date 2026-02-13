@@ -14,8 +14,8 @@ export async function GET(
   const task = await prisma.task.findUnique({
     where: { id: Number(id) },
   });
-  if (task) return NextResponse.json({ message: "Obteniendo Tarea", task });
-  return NextResponse.json([]);
+  console.log({ task });
+  return NextResponse.json(task || []);
 }
 
 export async function PUT(

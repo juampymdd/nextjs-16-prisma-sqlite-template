@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-
-export function GET() {
-  return NextResponse.json({ message: "Obteniendo Tareas" });
+import { prisma } from "@/app/libs/prisma";
+export async function GET() {
+  const tasks = await prisma.task.findMany();
+  return NextResponse.json(tasks);
 }
 
 export function POST() {
-  return NextResponse.json({ message: "Creando Tarea" });
+  return NextResponse.json({ message: "Creando Tarea" }); 
 }
