@@ -2,18 +2,147 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
 }
 
+// user model
+/**
+task belong to different users
+*/
+
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  tasks         Task[]
+  sessions      Session[]
+  accounts      Account[]
+  collaborations TaskCollaborator[]
+  projects      Project[]
+
+  @@map("user")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String?  @default("#3b82f6")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+
+  @@map("project")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
 model Task {
-  id          Int      @id @default(autoincrement())
+  id          String    @id @default(cuid())
   title       String
   description String?
-  completed   Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  status      String    @default("TODO") // TODO, IN_PROGRESS, DONE
+  priority    String    @default("medium") // low, medium, high
+  position    Int       @default(0)
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subtasks    Subtask[]
+  attachments Attachment[]
+  collaborators TaskCollaborator[]
+
+  @@map("task")
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  url       String
+  name      String
+  type      String   // image, file, etc.
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("attachment")
+}
+
+model Subtask {
+  id        String   @id @default(cuid())
+  title     String
+  completed Boolean  @default(false)
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("subtask")
+}
+
+model TaskCollaborator {
+  id     String @id @default(cuid())
+  taskId String
+  userId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@map("task_collaborator")
 }

@@ -1,9 +1,21 @@
-import { PrismaClient } from "../generated/prisma/client";
+// Re-evaluating client after generation
+import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
+
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 const adapter = new PrismaLibSql({
   url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
 });
 
-// Force recreate the client instance
-export const prisma = new PrismaClient({ adapter });
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    adapter,
+    log:
+      process.env.NODE_ENV === "development"
+        ? ["query", "error", "warn"]
+        : ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
