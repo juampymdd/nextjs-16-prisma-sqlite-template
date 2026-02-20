@@ -9,7 +9,15 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Folder, Plus, MoreVertical, Trash2, Search, Target, CheckCircle2 } from "lucide-react";
+import {
+  Folder,
+  Plus,
+  MoreVertical,
+  Trash2,
+  Search,
+  Target,
+  CheckCircle2,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
@@ -86,7 +94,10 @@ function ProjectCard({
                 {Math.round(progress)}%
               </p>
             </div>
-            <Progress value={progress} className="h-2 rounded-full bg-primary/5 shadow-inner" />
+            <Progress
+              value={progress}
+              className="h-2 rounded-full bg-primary/5 shadow-inner"
+            />
           </div>
 
           <div className="flex items-center justify-between pt-6 border-t border-border/5">
@@ -180,7 +191,14 @@ function ProjectCard({
 }
 
 export default function ProjectsPage() {
-  const { projects, tasks, deleteProject, addProject, fetchProjects, fetchTasks } = useTaskStore();
+  const {
+    projects,
+    tasks,
+    deleteProject,
+    addProject,
+    fetchProjects,
+    fetchTasks,
+  } = useTaskStore();
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -192,7 +210,7 @@ export default function ProjectsPage() {
 
   const filteredProjects = useMemo(() => {
     return projects.filter((p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()),
     );
   }, [projects, searchQuery]);
 
@@ -208,7 +226,9 @@ export default function ProjectsPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700">
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
         <div className="space-y-3">
-          <h1 className="text-5xl font-black tracking-tighter">Mis Proyectos</h1>
+          <h1 className="text-5xl font-black tracking-tighter">
+            Mis Proyectos
+          </h1>
           <p className="text-muted-foreground font-medium pl-1 border-l-4 border-primary/40 text-lg">
             Gestiona y organiza tus flujos de trabajo por categorías.
           </p>
@@ -216,7 +236,10 @@ export default function ProjectsPage() {
 
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
           <div className="relative w-full sm:w-80 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" size={20} />
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors"
+              size={20}
+            />
             <Input
               placeholder="Buscar proyectos..."
               value={searchQuery}
@@ -232,55 +255,55 @@ export default function ProjectsPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md rounded-[2.5rem] p-8 border-none shadow-2xl">
-            <DialogHeader>
-              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-4 shadow-sm border border-primary/5">
-                <Plus size={28} />
-              </div>
-              <DialogTitle className="text-3xl font-black tracking-tight">
-                Crear Proyecto
-              </DialogTitle>
-              <DialogDescription className="text-base text-muted-foreground py-2">
-                Asigna un nombre para tu nuevo espacio de trabajo. Podrás
-                invitar a tu equipo más tarde.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateProject} className="space-y-6 pt-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground ml-1">
-                  Nombre del Proyecto
-                </label>
-                <Input
-                  placeholder="Ej: Rediseño Web, Campaña 2026..."
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  autoFocus
-                  className="rounded-2xl h-14 px-6 text-lg border-border/10 bg-muted/30 focus:bg-background transition-all"
-                />
-              </div>
-              <DialogFooter className="sm:justify-end gap-3 mt-4">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setNewProjectOpen(false)}
-                  className="rounded-2xl h-12 px-6 font-bold"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={!projectName.trim()}
-                  className="rounded-2xl h-12 px-10 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/20"
-                >
-                  Confirmar
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+              <DialogHeader>
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-4 shadow-sm border border-primary/5">
+                  <Plus size={28} />
+                </div>
+                <DialogTitle className="text-3xl font-black tracking-tight">
+                  Crear Proyecto
+                </DialogTitle>
+                <DialogDescription className="text-base text-muted-foreground py-2">
+                  Asigna un nombre para tu nuevo espacio de trabajo. Podrás
+                  invitar a tu equipo más tarde.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateProject} className="space-y-6 pt-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground ml-1">
+                    Nombre del Proyecto
+                  </label>
+                  <Input
+                    placeholder="Ej: Rediseño Web, Campaña 2026..."
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    autoFocus
+                    className="rounded-2xl h-14 px-6 text-lg border-border/10 bg-muted/30 focus:bg-background transition-all"
+                  />
+                </div>
+                <DialogFooter className="sm:justify-end gap-3 mt-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setNewProjectOpen(false)}
+                    className="rounded-2xl h-12 px-6 font-bold"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={!projectName.trim()}
+                    className="rounded-2xl h-12 px-10 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/20"
+                  >
+                    Confirmar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
-    </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
         {filteredProjects.length > 0 ? (
           filteredProjects.map((project) => (
             <ProjectCard
@@ -307,8 +330,8 @@ export default function ProjectsPage() {
                   : "Empieza creando uno arriba"}
               </p>
               {searchQuery && (
-                <Button 
-                  variant="link" 
+                <Button
+                  variant="link"
                   onClick={() => setSearchQuery("")}
                   className="mt-4 font-black uppercase tracking-widest text-[10px] text-primary"
                 >

@@ -33,7 +33,10 @@ export async function GET(
     });
     return NextResponse.json(comments);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch comments" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Failed to fetch comments" },
+      { status: 400 },
+    );
   }
 }
 
@@ -53,7 +56,7 @@ export async function POST(
 
   try {
     const body = await request.json();
-    
+
     // Check if task exists and user has access
     const task = await prisma.task.findFirst({
       where: {
@@ -75,7 +78,10 @@ export async function POST(
     });
 
     if (!task) {
-      return NextResponse.json({ error: "Task not found or unauthorized" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Task not found or unauthorized" },
+        { status: 404 },
+      );
     }
 
     const comment = await prisma.comment.create({
@@ -93,6 +99,9 @@ export async function POST(
 
     return NextResponse.json(comment);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to create comment" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Failed to create comment" },
+      { status: 400 },
+    );
   }
 }

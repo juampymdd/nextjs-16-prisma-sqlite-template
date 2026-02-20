@@ -808,7 +808,8 @@ export const useTaskStore = create<TaskState>()(
         } catch (error) {
           console.error("Error fetching comments:", error);
         }
-      },    }),
+      },
+    }),
     {
       name: "task-storage",
       partialize: (state) => ({

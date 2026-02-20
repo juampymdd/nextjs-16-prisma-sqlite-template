@@ -801,8 +801,12 @@ export function TaskDetailDialog({
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                          <p className="text-xs font-bold truncate max-w-[100px]">{user.name}</p>
-                          <p className="text-[9px] text-muted-foreground truncate max-w-[100px]">{user.email}</p>
+                          <p className="text-xs font-bold truncate max-w-[100px]">
+                            {user.name}
+                          </p>
+                          <p className="text-[9px] text-muted-foreground truncate max-w-[100px]">
+                            {user.email}
+                          </p>
                         </div>
                       </div>
                       <Button
@@ -861,7 +865,9 @@ export function TaskDetailDialog({
                 {(!task.comments || task.comments.length === 0) && (
                   <div className="text-center py-8 text-muted-foreground/40 space-y-2">
                     <MessageSquare size={32} className="mx-auto opacity-20" />
-                    <p className="text-xs font-bold uppercase tracking-widest">Sin comentarios aún</p>
+                    <p className="text-xs font-bold uppercase tracking-widest">
+                      Sin comentarios aún
+                    </p>
                   </div>
                 )}
               </div>
@@ -881,8 +887,8 @@ export function TaskDetailDialog({
                     }}
                   />
                 </div>
-                <Button 
-                  onClick={handleCommentSubmit} 
+                <Button
+                  onClick={handleCommentSubmit}
                   disabled={!newComment.trim() || isSubmittingComment}
                   className="rounded-2xl h-20 w-20 flex-col gap-2 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20"
                 >
