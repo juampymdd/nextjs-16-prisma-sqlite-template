@@ -9,7 +9,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=file:./dev.db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/taskflow
       - NEXT_PUBLIC_APP_URL=http://localhost:3000
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
@@ -18,11 +18,24 @@ services:
       - MINIO_BUCKET=task-attachments
       - MINIO_USE_SSL=false
     depends_on:
+      - postgres
       - minio
     volumes:
       - .:/app
       - /app/node_modules
       - /app/.next
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskflow-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=taskflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   minio:
     image: minio/minio:latest
@@ -39,3 +52,4 @@ services:
 
 volumes:
   minio_data:
+  postgres_data:

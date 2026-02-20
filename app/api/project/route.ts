@@ -13,10 +13,38 @@ export async function GET() {
   }
 
   const projects = await prisma.project.findMany({
-    where: { userId: session.user.id },
+    where: {
+      OR: [
+        { userId: session.user.id },
+        { collaborators: { some: { userId: session.user.id } } },
+      ],
+    },
     include: {
       _count: {
         select: { tasks: true },
+      },
+      columns: {
+        orderBy: { position: "asc" },
+      },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+      collaborators: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -42,6 +70,16 @@ export async function POST(request: Request) {
         description: body.description,
         color: body.color || "#3b82f6",
         userId: session.user.id,
+        columns: {
+          create: [
+            { name: "PARA HACER", position: 0, color: "#3b82f6" },
+            { name: "EN PROCESO", position: 1, color: "#eab308" },
+            { name: "FINALIZADO", position: 2, color: "#22c55e" },
+          ],
+        },
+      },
+      include: {
+        columns: true,
       },
     });
     return NextResponse.json(project);

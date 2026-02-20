@@ -16,17 +16,23 @@ import {
   UserPlus,
   Users,
   Pencil,
+  Search,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { TaskDetailDialog } from "./TaskDetailDialog"; // Use Detail Dialog instead of EditForm
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { TaskCountdown } from "./TaskCountdown";
+import { format, addMinutes } from "date-fns";
 
 interface TaskItemProps {
   task: Task;
@@ -49,9 +55,49 @@ export const TaskItem = ({ task }: TaskItemProps) => {
     toggleSubtask,
     deleteSubtask,
     addCollaborator,
+    searchUsers,
   } = useTaskStore();
+
   const [isExpanded, setIsExpanded] = useState(false);
+  const [newSubtask, setNewSubtask] = useState("");
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    await deleteTask(task.id);
+    setIsConfirmDeleteOpen(false);
+  };
+
+  const handleSearch = async (val: string) => {
+    setQuery(val);
+    if (val.length < 3) {
+      setResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const users = await searchUsers(val);
+      setResults(users);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddCollaborator = async (email: string) => {
+    try {
+      await addCollaborator(task.id, email);
+      toast.success("Usuario invitado correctamente");
+      setQuery("");
+      setResults([]);
+    } catch (e: any) {
+      toast.error(e.message || "No se pudo invitar al usuario");
+    }
+  };
 
   return (
     <Card
@@ -105,15 +151,18 @@ export const TaskItem = ({ task }: TaskItemProps) => {
               {new Date(task.createdAt).toLocaleDateString()}
             </div>
             {task.dueDate && (
-              <div
-                className={`flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest ${
-                  new Date(task.dueDate) < new Date() && !task.completed
-                    ? "text-red-500"
-                    : "text-muted-foreground/60"
-                }`}
-              >
-                <AlertCircle size={10} />
-                Vence: {new Date(task.dueDate).toLocaleDateString()}
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex items-center gap-2 text-[10px] uppercase font-black tracking-widest ${
+                    new Date(task.dueDate) < new Date() && !task.completed
+                      ? "text-red-500"
+                      : "text-muted-foreground/60"
+                  }`}
+                >
+                  <AlertCircle size={10} />
+                  Vence: {format(addMinutes(new Date(task.dueDate), new Date().getTimezoneOffset()), "dd/MM/yyyy")}
+                </div>
+                <TaskCountdown dueDate={task.dueDate} completed={task.completed} />
               </div>
             )}
             {task.subtasks && task.subtasks.length > 0 && (
@@ -121,6 +170,17 @@ export const TaskItem = ({ task }: TaskItemProps) => {
                 <ListChecks size={10} />
                 {task.subtasks.filter((s) => s.completed).length}/
                 {task.subtasks.length} pasos
+              </div>
+            )}
+            {task.assignee && (
+              <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-muted-foreground/60 tracking-widest">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={task.assignee.image} />
+                  <AvatarFallback className="text-[8px] bg-primary/10 text-primary">
+                    {task.assignee.name?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                {task.assignee.name}
               </div>
             )}
           </div>
@@ -150,42 +210,71 @@ export const TaskItem = ({ task }: TaskItemProps) => {
                 <UserPlus size={18} />
               </Button>
             </DialogTrigger>
-            <DialogContent className="rounded-3xl border-none shadow-2xl sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-black">
-                  Colaboradores
-                </DialogTitle>
-                <DialogDescription>
-                  Invita a otros usuarios a colaborar en esta tarea.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6 pt-4">
-                <div className="flex gap-2">
-                  <Input
-                    id={`invite-${task.id}`}
-                    placeholder="Email del usuario..."
-                    className="h-12 rounded-xl border-border/40"
-                  />
-                  <Button
-                    onClick={async () => {
-                      const input = document.getElementById(
-                        `invite-${task.id}`,
-                      ) as HTMLInputElement;
-                      const email = input.value;
-                      try {
-                        await addCollaborator(task.id, email);
-                        toast.success("Usuario invitado correctamente");
-                        input.value = "";
-                      } catch (e: any) {
-                        toast.error(
-                          e.message || "No se pudo invitar al usuario",
-                        );
-                      }
-                    }}
-                    className="h-12 rounded-xl px-6"
-                  >
-                    Invitar
-                  </Button>
+            <DialogContent className="rounded-3xl border-none shadow-2xl sm:max-w-md p-0 overflow-hidden">
+              <div className="bg-primary/5 p-6 border-b border-border/10">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-black">
+                    Colaboradores
+                  </DialogTitle>
+                  <DialogDescription>
+                    Busca e invita a otros miembros a esta tarea.
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input
+                      placeholder="Nombre o email para invitar..."
+                      value={query}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      className="pl-10 h-12 rounded-xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all font-medium"
+                    />
+                    {isSearching && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
+                    )}
+                  </div>
+
+                  {results.length > 0 && (
+                    <div className="bg-muted/30 rounded-2xl border border-border/10 overflow-hidden divide-y divide-border/5 animate-in fade-in zoom-in-95 duration-200">
+                      {results.map((user) => (
+                        <div
+                          key={user.id}
+                          className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 rounded-lg">
+                              <AvatarImage src={user.image} />
+                              <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-[10px] font-bold">
+                                {user.name?.[0] || user.email?.[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold truncate">
+                                {user.name || "Sin nombre"}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {user.email}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="rounded-lg h-8 w-8 p-0"
+                            onClick={() => handleAddCollaborator(user.email)}
+                            disabled={task.collaborators?.some(
+                              (c) => c.userId === user.id,
+                            )}
+                          >
+                            <UserPlus size={16} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -209,17 +298,12 @@ export const TaskItem = ({ task }: TaskItemProps) => {
                         key={c.id}
                         className="flex items-center gap-3 p-3 bg-card border border-border/40 rounded-2xl group/collab transition-colors hover:bg-muted/30"
                       >
-                        {c.user.image ? (
-                          <img
-                            src={c.user.image}
-                            alt={c.user.name}
-                            className="w-10 h-10 rounded-xl"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-sm">
-                            {c.user.name[0]}
-                          </div>
-                        )}
+                        <Avatar className="h-10 w-10 rounded-xl">
+                          <AvatarImage src={c.user.image} />
+                          <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-sm font-bold">
+                            {c.user.name?.[0] || c.user.email?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-black truncate">
                             {c.user.name}
@@ -250,12 +334,29 @@ export const TaskItem = ({ task }: TaskItemProps) => {
             variant="ghost"
             size="icon"
             className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10 hover:text-destructive rounded-xl"
-            onClick={() => {
-              if (confirm("¿Eliminar esta tarea?")) deleteTask(task.id);
-            }}
+            onClick={() => setIsConfirmDeleteOpen(true)}
           >
             <Trash2 size={18} />
           </Button>
+
+          <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
+            <DialogContent className="sm:max-w-md rounded-[2rem]">
+              <DialogHeader>
+                <DialogTitle>¿Eliminar tarea?</DialogTitle>
+                <DialogDescription className="py-2">
+                  Estás a punto de eliminar la tarea <strong>"{task.title}"</strong>. Esta acción no se puede deshacer.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:justify-end">
+                <Button variant="ghost" onClick={() => setIsConfirmDeleteOpen(false)} className="rounded-xl">
+                  Cancelar
+                </Button>
+                <Button variant="destructive" onClick={handleConfirmDelete} className="rounded-xl font-bold">
+                  Eliminar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
 

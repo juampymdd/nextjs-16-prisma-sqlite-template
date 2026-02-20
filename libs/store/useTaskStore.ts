@@ -19,12 +19,37 @@ export interface Subtask {
   completed: boolean;
 }
 
+export interface ProjectCollaborator {
+  id: string;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
+}
+
+export interface ProjectColumn {
+  id: string;
+  name: string;
+  color?: string;
+  position: number;
+  projectId: string;
+}
+
 export interface Project {
   id: string;
   name: string;
   description?: string;
   color?: string;
+  completed: boolean;
+  completedAt?: string;
   createdAt: string;
+  userId: string;
+  user?: { id: string; name: string; email: string; image?: string };
+  collaborators: ProjectCollaborator[];
+  columns: ProjectColumn[];
   _count?: { tasks: number };
 }
 
@@ -49,9 +74,15 @@ export interface Task {
   priority: Priority;
   projectId: string; // Required
   project?: Project;
+  columnId?: string;
+  column?: ProjectColumn;
   position: number;
   dueDate?: string;
   createdAt: string;
+  userId: string;
+  user?: { id: string; name: string; email: string; image?: string };
+  assigneeId?: string;
+  assignee?: { id: string; name: string; email: string; image?: string };
   subtasks: Subtask[];
   attachments: Attachment[];
   collaborators: TaskCollaborator[];
@@ -66,13 +97,24 @@ interface TaskState {
 
   // Projects
   fetchProjects: () => Promise<void>;
+  fetchProject: (id: string) => Promise<void>;
   addProject: (project: {
     name: string;
     description?: string;
     color?: string;
   }) => Promise<void>;
+  updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   setActiveProject: (id: string | null) => void;
+
+  // Columns
+  addColumn: (projectId: string, name: string, color?: string) => Promise<void>;
+  updateColumn: (
+    projectId: string,
+    columnId: string,
+    updates: Partial<ProjectColumn>,
+  ) => Promise<void>;
+  deleteColumn: (projectId: string, columnId: string) => Promise<void>;
 
   // Tasks (All project-dependent)
   fetchTasks: () => Promise<void>;
@@ -84,10 +126,19 @@ interface TaskState {
     status: TaskStatus;
     dueDate?: string;
     completed?: boolean;
+    assigneeId?: string;
   }) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   setTasks: (tasks: Task[]) => void;
+
+  // Collaborators
+  searchUsers: (query: string) => Promise<any[]>;
+  addProjectCollaborator: (projectId: string, userId: string) => Promise<void>;
+  removeProjectCollaborator: (
+    projectId: string,
+    userId: string,
+  ) => Promise<void>;
 
   // Task specific items
   addSubtask: (taskId: string, title: string) => Promise<void>;
@@ -98,6 +149,7 @@ interface TaskState {
     taskId: string,
     attachment: { url: string; name: string; type: AttachmentType },
   ) => Promise<void>;
+  deleteAttachment: (taskId: string, attachmentId: string) => Promise<void>;
 }
 
 export const useTaskStore = create<TaskState>()(
@@ -110,6 +162,94 @@ export const useTaskStore = create<TaskState>()(
       isLoadingProjects: false,
 
       setActiveProject: (id) => set({ activeProjectId: id }),
+
+      addColumn: async (projectId: string, name: string, color?: string) => {
+        try {
+          const res = await fetch(`/api/project/${projectId}/column`, {
+            method: "POST",
+            body: JSON.stringify({ name, color }),
+            headers: { "Content-Type": "application/json" },
+          });
+          if (res.ok) {
+            const newColumn = await res.json();
+            set((state) => ({
+              projects: state.projects.map((p) =>
+                p.id === projectId
+                  ? { ...p, columns: [...(p.columns || []), newColumn] }
+                  : p,
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error("Error adding column:", error);
+        }
+      },
+
+      updateColumn: async (projectId, columnId, updates) => {
+        try {
+          const res = await fetch(
+            `/api/project/${projectId}/column/${columnId}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(updates),
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+          if (res.ok) {
+            const updatedColumn = await res.json();
+            set((state) => ({
+              projects: state.projects.map((p) =>
+                p.id === projectId
+                  ? {
+                      ...p,
+                      columns: p.columns.map((c) =>
+                        c.id === columnId ? updatedColumn : c,
+                      ),
+                    }
+                  : p,
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error("Error updating column:", error);
+        }
+      },
+
+      deleteColumn: async (projectId, columnId) => {
+        try {
+          const res = await fetch(
+            `/api/project/${projectId}/column/${columnId}`,
+            {
+              method: "DELETE",
+            },
+          );
+          if (res.ok) {
+            // Find fallback column for moving tasks in local state
+            const project = get().projects.find((p) => p.id === projectId);
+            const fallbackColumn = project?.columns.find(
+              (c) => c.id !== columnId,
+            );
+
+            set((state) => ({
+              projects: state.projects.map((p) =>
+                p.id === projectId
+                  ? {
+                      ...p,
+                      columns: p.columns.filter((c) => c.id !== columnId),
+                    }
+                  : p,
+              ),
+              tasks: state.tasks.map((t) =>
+                t.columnId === columnId
+                  ? { ...t, columnId: fallbackColumn?.id || undefined }
+                  : t,
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error("Error deleting column:", error);
+        }
+      },
 
       fetchProjects: async () => {
         const { projects } = get();
@@ -142,6 +282,26 @@ export const useTaskStore = create<TaskState>()(
         }
       },
 
+      updateProject: async (id: string, updates: Partial<Project>) => {
+        try {
+          const res = await fetch(`/api/project/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(updates),
+            headers: { "Content-Type": "application/json" },
+          });
+          if (res.ok) {
+            const updatedProject = await res.json();
+            set((state) => ({
+              projects: state.projects.map((p) =>
+                p.id === id ? updatedProject : p,
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error("Error updating project:", error);
+        }
+      },
+
       deleteProject: async (id) => {
         const previousProjects = get().projects;
         set((state) => ({
@@ -154,6 +314,24 @@ export const useTaskStore = create<TaskState>()(
           if (!res.ok) throw new Error();
         } catch (error) {
           set({ projects: previousProjects });
+        }
+      },
+
+      fetchProject: async (id: string) => {
+        try {
+          const res = await fetch(`/api/project/${id}`);
+          if (res.ok) {
+            const project = await res.json();
+            set((state) => ({
+              projects: state.projects.map((p) => (p.id === id ? project : p)),
+            }));
+            // If project not in store, add it
+            if (!get().projects.find((p) => p.id === id)) {
+              set((state) => ({ projects: [...state.projects, project] }));
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching project:", error);
         }
       },
 
@@ -270,6 +448,80 @@ export const useTaskStore = create<TaskState>()(
           });
           return { tasks: mergedTasks };
         });
+      },
+
+      searchUsers: async (query: string) => {
+        if (query.length < 3) return [];
+        try {
+          const response = await fetch(
+            `/api/users?query=${encodeURIComponent(query)}`,
+          );
+          if (!response.ok) throw new Error("Search failed");
+          return await response.json();
+        } catch (error) {
+          console.error("Search error:", error);
+          return [];
+        }
+      },
+
+      addProjectCollaborator: async (projectId: string, userId: string) => {
+        try {
+          const response = await fetch(
+            `/api/project/${projectId}/collaborator`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId }),
+            },
+          );
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || "Failed to add collaborator");
+          }
+          const newCollaborator = await response.json();
+
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId
+                ? {
+                    ...p,
+                    collaborators: [
+                      ...(p.collaborators || []),
+                      newCollaborator,
+                    ],
+                  }
+                : p,
+            ),
+          }));
+        } catch (error: any) {
+          console.error("Add collaborator error:", error);
+          throw error;
+        }
+      },
+
+      removeProjectCollaborator: async (projectId: string, userId: string) => {
+        try {
+          const response = await fetch(
+            `/api/project/${projectId}/collaborator?userId=${userId}`,
+            { method: "DELETE" },
+          );
+          if (!response.ok) throw new Error("Failed to remove collaborator");
+
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId
+                ? {
+                    ...p,
+                    collaborators: (p.collaborators || []).filter(
+                      (c) => c.userId !== userId,
+                    ),
+                  }
+                : p,
+            ),
+          }));
+        } catch (error) {
+          console.error("Remove collaborator error:", error);
+        }
       },
 
       addSubtask: async (taskId, title) => {
@@ -447,13 +699,38 @@ export const useTaskStore = create<TaskState>()(
           console.error("Error adding attachment:", error);
         }
       },
+
+      deleteAttachment: async (taskId, attachmentId) => {
+        try {
+          const res = await fetch(
+            `/api/task/${taskId}/attachment/${attachmentId}`,
+            {
+              method: "DELETE",
+            },
+          );
+          if (res.ok) {
+            set((state) => ({
+              tasks: state.tasks.map((t) =>
+                t.id === taskId
+                  ? {
+                      ...t,
+                      attachments: t.attachments.filter(
+                        (a) => a.id !== attachmentId,
+                      ),
+                    }
+                  : t,
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error("Error deleting attachment:", error);
+        }
+      },
     }),
     {
       name: "task-storage",
       partialize: (state) => ({
         activeProjectId: state.activeProjectId,
-        tasks: state.tasks,
-        projects: state.projects,
       }),
     },
   ),

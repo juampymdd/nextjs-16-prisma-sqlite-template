@@ -1,9 +1,11 @@
-import { PrismaClient } from "../app/generated/prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
-const adapter = new PrismaLibSql({
-  url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
 });
+const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({ adapter });
 
@@ -26,7 +28,17 @@ async function main() {
   });
   console.log(`👤 Usuario de prueba creado: ${testUser.email}`);
 
-  // Crear tareas de ejemplo relacionadas al usuario
+  // Crear un proyecto por defecto ya que es obligatorio
+  const defaultProject = await prisma.project.create({
+    data: {
+      name: "Mi Primer Proyecto",
+      description: "Proyecto creado automáticamente",
+      userId: testUser.id,
+    },
+  });
+  console.log(`📁 Proyecto por defecto creado: ${defaultProject.name}`);
+
+  // Crear tareas de ejemplo relacionadas al usuario y al proyecto
   const tasks = [
     {
       title: "Instalar dependencias",
@@ -34,6 +46,7 @@ async function main() {
         "Ejecutar bun install para instalar todas las dependencias del proyecto",
       completed: true,
       userId: testUser.id,
+      projectId: defaultProject.id,
     },
     {
       title: "Configurar Prisma",
@@ -41,18 +54,21 @@ async function main() {
         "Configurar el schema de Prisma y el archivo prisma.config.ts",
       completed: true,
       userId: testUser.id,
+      projectId: defaultProject.id,
     },
     {
       title: "Generar cliente de Prisma",
       description: "Ejecutar bunx prisma generate para generar el cliente",
       completed: true,
       userId: testUser.id,
+      projectId: defaultProject.id,
     },
     {
       title: "Ejecutar migraciones",
       description: "Correr bunx prisma migrate dev para crear la base de datos",
       completed: true,
       userId: testUser.id,
+      projectId: defaultProject.id,
     },
     {
       title: "Iniciar servidor de desarrollo",
@@ -60,18 +76,21 @@ async function main() {
         "Ejecutar bun dev para iniciar la aplicación en modo desarrollo",
       completed: false,
       userId: testUser.id,
+      projectId: defaultProject.id,
     },
     {
       title: "Probar Prisma Studio",
       description: "Abrir bunx prisma studio para visualizar los datos",
       completed: false,
       userId: testUser.id,
+      projectId: defaultProject.id,
     },
     {
       title: "Implementar funcionalidad completa",
       description: "Agregar operaciones CRUD completas para las tareas",
       completed: false,
       userId: testUser.id,
+      projectId: defaultProject.id,
     },
   ];
 

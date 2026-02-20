@@ -45,6 +45,7 @@ const taskSchema = z.object({
   status: z.enum(["TODO", "IN_PROGRESS", "DONE"]),
   dueDate: z.string().optional(),
   projectId: z.string().min(1, "El proyecto es obligatorio"),
+  assigneeId: z.string().optional(),
 });
 
 type TaskFormValues = z.infer<typeof taskSchema>;
@@ -68,6 +69,7 @@ export function CreateTaskForm({
       status: "TODO",
       dueDate: "",
       projectId: defaultProjectId || "",
+      assigneeId: "",
     },
   });
 
@@ -82,6 +84,7 @@ export function CreateTaskForm({
         status: values.status,
         dueDate: values.dueDate || undefined,
         completed: values.status === "DONE",
+        assigneeId: values.assigneeId || undefined,
       });
 
       toast.success("Tarea creada correctamente");
@@ -216,6 +219,52 @@ export function CreateTaskForm({
                   </FormItem>
                 )}
               />
+
+              {/* Asignado a */}
+              {selectedProject &&
+                (selectedProject.collaborators?.length > 0 ||
+                  selectedProject.user) && (
+                  <FormField
+                    control={form.control}
+                    name="assigneeId"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-xs font-bold text-muted-foreground px-1 flex items-center gap-2">
+                          <Flag size={14} /> Asignar a
+                        </FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="rounded-xl bg-card border-none shadow-sm">
+                              <SelectValue placeholder="Sin asignar" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="rounded-xl border-none shadow-xl">
+                            <SelectItem value="none">Sin asignar</SelectItem>
+                            {/* Owner */}
+                            {selectedProject.user && (
+                              <SelectItem value={selectedProject.user.id}>
+                                {selectedProject.user.name} (Propietario)
+                              </SelectItem>
+                            )}
+                            {/* Collaborators */}
+                            {selectedProject.collaborators?.map((collab) => (
+                              <SelectItem
+                                key={collab.user.id}
+                                value={collab.user.id}
+                              >
+                                {collab.user.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
               <FormField
                 control={form.control}

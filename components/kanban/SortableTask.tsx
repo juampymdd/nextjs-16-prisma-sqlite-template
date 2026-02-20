@@ -5,10 +5,19 @@ import { CSS } from "@dnd-kit/utilities";
 import { Task } from "@/libs/store/useTaskStore";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/libs/utils";
-import { Paperclip, MessageSquare, CheckSquare, Pencil } from "lucide-react";
+import {
+  Paperclip,
+  MessageSquare,
+  CheckSquare,
+  Pencil,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { TaskCountdown } from "@/components/tasks/TaskCountdown";
+import { Calendar } from "lucide-react";
 
 interface Props {
   task: Task;
@@ -108,7 +117,19 @@ export const SortableTask = ({ task }: Props) => {
               {task.priority}
             </span>
 
+            {task.dueDate && (
+              <TaskCountdown dueDate={task.dueDate} completed={task.completed} />
+            )}
+
             <div className="flex items-center gap-2 ml-auto text-muted-foreground">
+              {task.assignee && (
+                <Avatar className="h-5 w-5 border border-background shadow-sm ring-1 ring-border/5">
+                  <AvatarImage src={task.assignee.image} />
+                  <AvatarFallback className="text-[8px] font-black bg-primary/20 text-primary">
+                    {task.assignee.name?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              )}
               {task.attachments?.length > 0 && (
                 <div className="flex items-center gap-0.5 text-[10px]">
                   <Paperclip size={12} />

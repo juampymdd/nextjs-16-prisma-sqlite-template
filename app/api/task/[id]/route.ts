@@ -23,8 +23,33 @@ export async function PUT(
 
   try {
     const body = await request.json();
+
+    // Check if user has access to this task
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id,
+        OR: [
+          { userId: session.user.id },
+          { assigneeId: session.user.id },
+          { collaborators: { some: { userId: session.user.id } } },
+          {
+            project: {
+              OR: [
+                { userId: session.user.id },
+                { collaborators: { some: { userId: session.user.id } } },
+              ],
+            },
+          },
+        ],
+      },
+    });
+
+    if (!existingTask) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     const task = await prisma.task.update({
-      where: { id, userId: session.user.id },
+      where: { id },
       data: {
         title: body.title,
         description: body.description,
@@ -39,15 +64,13 @@ export async function PUT(
         priority: body.priority,
         position: body.position,
         dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
-        projectId: body.projectId === "none" ? null : body.projectId,
+        projectId: body.projectId === "none" ? undefined : body.projectId,
+        assigneeId: body.assigneeId,
       },
     });
     return NextResponse.json(task);
   } catch (error) {
-    return NextResponse.json(
-      { error: "Task not found or unauthorized" },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: "Update failed" }, { status: 400 });
   }
 }
 
@@ -66,14 +89,26 @@ export async function DELETE(
   const { id } = await params;
 
   try {
+    // Only creator or project owner can delete
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id,
+        OR: [
+          { userId: session.user.id },
+          { project: { userId: session.user.id } },
+        ],
+      },
+    });
+
+    if (!existingTask) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     await prisma.task.delete({
-      where: { id, userId: session.user.id },
+      where: { id },
     });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Task not found or unauthorized" },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: "Delete failed" }, { status: 400 });
   }
 }

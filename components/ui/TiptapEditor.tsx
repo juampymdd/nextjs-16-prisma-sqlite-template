@@ -1,7 +1,7 @@
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
@@ -25,6 +25,14 @@ import {
 } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "@/libs/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./dialog";
+import { Input } from "./input";
 
 interface TiptapEditorProps {
   content: string;
@@ -33,30 +41,65 @@ interface TiptapEditorProps {
 }
 
 const MenuBar = ({ editor }: { editor: any }) => {
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [promptType, setPromptType] = useState<"image" | "link">("link");
+  const [url, setUrl] = useState("");
+
   if (!editor) return null;
 
-  const addImage = () => {
-    const url = window.prompt("URL de la imagen:");
-    if (url) {
-      editor.chain().focus().setImage({ src: url }).run();
+  const handlePromptSubmit = () => {
+    if (promptType === "image") {
+      if (url) editor.chain().focus().setImage({ src: url }).run();
+    } else {
+      if (url === "") {
+        editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      } else {
+        editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+      }
     }
+    setPromptOpen(false);
+    setUrl("");
+  };
+
+  const addImage = () => {
+    setPromptType("image");
+    setUrl("");
+    setPromptOpen(true);
   };
 
   const setLink = () => {
     const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("URL del enlace:", previousUrl);
-
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    setPromptType("link");
+    setUrl(previousUrl || "");
+    setPromptOpen(true);
   };
 
   return (
     <div className="flex flex-wrap gap-1 p-2 border-b bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
+      <Dialog open={promptOpen} onOpenChange={setPromptOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {promptType === "image" ? "Insertar Imagen" : "Insertar Enlace"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="https://..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handlePromptSubmit()}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPromptOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handlePromptSubmit}>Insertar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Button
         type="button"
         variant="ghost"

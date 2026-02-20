@@ -29,13 +29,46 @@ export async function GET() {
       where: {
         OR: [
           { userId: session.user.id },
-          { collaborators: { some: { userId: session.user.id } } },
+          { assigneeId: session.user.id },
+          {
+            collaborators: {
+              some: { userId: session.user.id },
+            },
+          },
+          {
+            project: {
+              OR: [
+                { userId: session.user.id },
+                {
+                  collaborators: {
+                    some: { userId: session.user.id },
+                  },
+                },
+              ],
+            },
+          },
         ],
       },
       include: {
         subtasks: true,
         attachments: true,
         project: true,
+        assignee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
         collaborators: {
           include: {
             user: {
@@ -55,14 +88,13 @@ export async function GET() {
     return NextResponse.json(tasks);
   } catch (dbError: any) {
     console.error("GET /api/task - DB ERROR:", dbError);
-    return NextResponse.json(
-      {
-        error: "Database Error",
-        details: dbError.message,
-        code: dbError.code,
-      },
-      { status: 500 },
-    );
+    const errorResponse = {
+      error: "Database Error",
+      message: dbError.message || "Unknown database error",
+      code: dbError.code,
+      meta: dbError.meta,
+    };
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
 
@@ -97,7 +129,17 @@ export async function POST(request: Request) {
         completedAt: isCompleted ? new Date() : null,
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         userId: session.user.id,
+        assigneeId: body.assigneeId || null,
         projectId: body.projectId,
+        columnId:
+          body.columnId ||
+          (await prisma.projectColumn
+            .findFirst({
+              where: { projectId: body.projectId },
+              orderBy: { position: "asc" },
+            })
+            .then((col) => col?.id)) ||
+          null,
       },
     });
     return NextResponse.json(task);

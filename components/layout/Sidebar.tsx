@@ -14,6 +14,7 @@ import {
   Folder,
   Plus,
   Briefcase,
+  Users,
 } from "lucide-react";
 import { authClient } from "@/app/libs/auth-client";
 import { Button } from "@/components/ui/button";
@@ -181,16 +182,23 @@ export function Sidebar() {
                       if (window.innerWidth < 1024) setIsOpen(false);
                     }}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-xl transition-colors",
+                      "flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-xl transition-colors group",
                       pathname === `/dashboard/projects/${project.id}`
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
-                    <Folder size={16} />
-                    <span className="truncate">{project.name}</span>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {project.userId !== session?.user?.id ||
+                      (project.collaborators?.length ?? 0) > 0 ? (
+                        <Users size={16} className="shrink-0" />
+                      ) : (
+                        <Folder size={16} className="shrink-0" />
+                      )}
+                      <span className="truncate">{project.name}</span>
+                    </div>
                     {project._count && project._count.tasks > 0 && (
-                      <span className="ml-auto text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                      <span className="ml-auto text-[10px] bg-muted group-hover:bg-background text-muted-foreground px-2 py-0.5 rounded-full">
                         {project._count.tasks}
                       </span>
                     )}

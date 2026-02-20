@@ -25,6 +25,16 @@ import {
   X,
   Layout,
   Folder,
+  Users,
+  Search,
+  UserPlus,
+  Maximize2,
+  ChevronLeft,
+  Download,
+  AlignLeft,
+  ListChecks,
+  Check,
+  CloudUpload,
 } from "lucide-react";
 import {
   useTaskStore,
@@ -41,9 +51,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/libs/utils";
-import { format } from "date-fns";
+import { format, addMinutes } from "date-fns";
 import { toast } from "sonner";
+import { TaskCountdown } from "./TaskCountdown";
 
 interface TaskDetailDialogProps {
   task: Task;
@@ -52,18 +64,74 @@ interface TaskDetailDialogProps {
 }
 
 export function TaskDetailDialog({
-  task,
+  task: taskProp,
   open,
   onOpenChange,
 }: TaskDetailDialogProps) {
-  const { updateTask, addSubtask, toggleSubtask, deleteSubtask, projects } =
-    useTaskStore();
+  const {
+    tasks,
+    updateTask,
+    addSubtask,
+    toggleSubtask,
+    deleteSubtask,
+    projects,
+    addAttachment,
+    deleteAttachment,
+    addCollaborator,
+    searchUsers,
+  } = useTaskStore();
+
+  const [localDescription, setLocalDescription] = useState(
+    taskProp.description || "",
+  );
+  const [isUpdatingDescription, setIsUpdatingDescription] = useState(false);
+
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleSearch = async (val: string) => {
+    setQuery(val);
+    if (val.length < 3) {
+      setResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const users = await searchUsers(val);
+      setResults(users);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddCollaborator = async (email: string) => {
+    try {
+      await addCollaborator(task.id, email);
+      toast.success("Usuario invitado correctamente");
+      setQuery("");
+      setResults([]);
+    } catch (e: any) {
+      toast.error(e.message || "No se pudo invitar al usuario");
+    }
+  };
+
+  const task = useMemo(() => {
+    return tasks.find((t) => t.id === taskProp.id) || taskProp;
+  }, [tasks, taskProp.id, taskProp]);
+
+  const selectedProject = useMemo(() => {
+    return projects.find((p) => p.id === task.projectId);
+  }, [projects, task.projectId]);
+
+  const currentProject = selectedProject; // Use the same variable for both
+
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
-  const [isUpdatingDescription, setIsUpdatingDescription] = useState(false);
-  const [localDescription, setLocalDescription] = useState(
-    task.description || "",
-  );
+  const [isUploading, setIsUploading] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
 
   const completionPercentage = useMemo(() => {
     if (!task.subtasks || task.subtasks.length === 0) {
@@ -97,6 +165,17 @@ export function TaskDetailDialog({
       toast.success("Proyecto actualizado");
     } catch (error) {
       toast.error("Error al actualizar proyecto");
+    }
+  };
+
+  const handleAssigneeChange = async (assigneeId: string) => {
+    try {
+      await updateTask(task.id, {
+        assigneeId: assigneeId === "none" ? undefined : assigneeId,
+      });
+      toast.success("Asignado actualizado");
+    } catch (error) {
+      toast.error("Error al actualizar asignado");
     }
   };
 
@@ -146,34 +225,25 @@ export function TaskDetailDialog({
       return;
     }
 
+    setIsUploading(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       try {
-        const res = await fetch(`/api/task/${task.id}/attachment`, {
-          method: "POST",
-          body: JSON.stringify({
-            url: base64,
-            name: file.name,
-            type: "image",
-          }),
-          headers: { "Content-Type": "application/json" },
+        await addAttachment(task.id, {
+          url: base64,
+          name: file.name,
+          type: "image",
         });
-        if (res.ok) {
-          toast.success("Imagen subida correctamente");
-          // The store should ideally handle updating the task attachments
-          // For now, we might need a fetchTask or similar
-        }
+        toast.success("Imagen subida correctamente");
       } catch (error) {
         toast.error("Error al subir la imagen");
+      } finally {
+        setIsUploading(false);
       }
     };
     reader.readAsDataURL(file);
   };
-
-  const currentProject = useMemo(() => {
-    return projects.find((p) => p.id === task.projectId);
-  }, [projects, task.projectId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -206,9 +276,12 @@ export function TaskDetailDialog({
           </div>
           <div className="flex items-center gap-2">
             {task.dueDate && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-4">
-                <Calendar className="h-3.5 w-3.5" />
-                {format(new Date(task.dueDate), "dd MMM, yyyy")}
+              <div className="flex items-center gap-4 mr-4">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap font-black uppercase tracking-widest">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {format(addMinutes(new Date(task.dueDate), new Date().getTimezoneOffset()), "dd/MM/yyyy")}
+                </div>
+                <TaskCountdown dueDate={task.dueDate} completed={task.completed} />
               </div>
             )}
             <Button
@@ -223,300 +296,483 @@ export function TaskDetailDialog({
 
         <div className="p-6 space-y-8">
           {/* Header & Progress */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <h2 className="text-3xl font-bold tracking-tight">
+              <div className="space-y-2">
+                <h2 className="text-4xl font-black tracking-tight bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent">
                   {task.title}
                 </h2>
-                <p className="text-sm text-muted-foreground">
-                  Gestiona los detalles, subtareas y adjuntos de esta tarea.
-                </p>
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
+                  <Folder className="h-3 w-3" />
+                  <span>{currentProject?.name || "Sin Proyecto"}</span>
+                  <span>•</span>
+                  <span>Creada el {format(new Date(task.createdAt), "dd/MM/yyyy")}</span>
+                </div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-primary">
+                <div className="text-3xl font-black text-primary drop-shadow-sm">
                   {completionPercentage}%
                 </div>
-                <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                  Completado
+                <div className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/50">
+                  Progreso Total
                 </div>
               </div>
             </div>
-            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-500 ease-out"
-                style={{ width: `${completionPercentage}%` }}
-              />
+            
+            <div className="space-y-2">
+              <div className="h-3 w-full bg-muted/30 rounded-full overflow-hidden p-[2px] border border-border/5">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-1000 ease-in-out shadow-[0_0_15px_rgba(var(--primary),0.5)]"
+                  style={{ width: `${completionPercentage}%` }}
+                />
+              </div>
+            </div>
+
+            {/* QUICK CONFIG BAR (HORIZONTAL) */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 p-4 rounded-2xl bg-muted/20 border border-border/10">
+              {/* Project */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Proyecto</label>
+                <Select value={task.projectId} onValueChange={handleProjectChange}>
+                  <SelectTrigger className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm">
+                    <SelectValue placeholder="Proyecto" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Estado</label>
+                <Select value={task.status} onValueChange={(val) => handleStatusChange(val as TaskStatus)}>
+                  <SelectTrigger className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                    <SelectItem value="TODO" className="text-xs">Para Hacer</SelectItem>
+                    <SelectItem value="IN_PROGRESS" className="text-xs">En Proceso</SelectItem>
+                    <SelectItem value="DONE" className="text-xs">Finalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Priority */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Prioridad</label>
+                <Select value={task.priority} onValueChange={(val) => handlePriorityChange(val as Priority)}>
+                  <SelectTrigger className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                    <SelectItem value="low" className="text-xs">Baja</SelectItem>
+                    <SelectItem value="medium" className="text-xs">Media</SelectItem>
+                    <SelectItem value="high" className="text-xs">Alta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Assignee */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Asignado</label>
+                <Select value={task.assigneeId || "none"} onValueChange={handleAssigneeChange}>
+                  <SelectTrigger className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm">
+                    <SelectValue placeholder="Sin asignar" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                    <SelectItem value="none" className="text-xs">Sin asignar</SelectItem>
+                    {selectedProject?.user && (
+                      <SelectItem value={selectedProject.user.id} className="text-xs">
+                        {selectedProject.user.name} (Tú)
+                      </SelectItem>
+                    )}
+                    {selectedProject?.collaborators?.map((collab) => (
+                      <SelectItem key={collab.user.id} value={collab.user.id} className="text-xs">{collab.user.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Due Date */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Vencimiento</label>
+                <div className="relative">
+                  <Input
+                    type="date"
+                    value={task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""}
+                    onChange={handleDueDateChange}
+                    className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm pr-2"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2 space-y-6">
-              {/* Description */}
-              <div className="space-y-3">
-                <div className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center justify-between">
-                  <span>Descripción Detallada</span>
-                  {isUpdatingDescription && (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  )}
+          <div className="space-y-10">
+            {/* Description - FULL WIDTH */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                    <AlignLeft className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-foreground">
+                    Descripción del Proyecto
+                  </h3>
                 </div>
+                {isUpdatingDescription && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+              </div>
+              
+              <div className="rounded-2xl border border-border/10 bg-muted/5 p-1 focus-within:border-primary/30 transition-colors">
                 <TiptapEditor
                   content={localDescription}
                   onChange={handleDescriptionChange}
-                  placeholder="Describe la tarea, añade notas, enlaces o imágenes..."
+                  placeholder="Escribe los detalles maestros de esta tarea..."
                 />
-                <div className="flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg shadow-sm"
-                    onClick={saveDescription}
-                    disabled={
-                      isUpdatingDescription ||
-                      localDescription === task.description
-                    }
-                  >
-                    {isUpdatingDescription ? "Guardando..." : "Guardar Cambios"}
-                  </Button>
-                </div>
               </div>
-
-              {/* Attachments */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                    Adjuntos
-                  </h3>
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      accept="image/*"
-                    />
-                    <div className="flex items-center gap-2 text-sm text-primary hover:underline font-medium">
-                      <Plus className="h-4 w-4" /> Subir Imagen
-                    </div>
-                  </label>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {task.attachments?.map((attachment) => (
-                    <div
-                      key={attachment.id}
-                      className="group relative aspect-video rounded-xl border overflow-hidden bg-muted"
-                    >
-                      <img
-                        src={attachment.url}
-                        alt={attachment.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-white"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  <label className="border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 p-4 text-muted-foreground hover:bg-muted/50 cursor-pointer transition-colors">
-                    <ImageIcon className="h-6 w-6" />
-                    <span className="text-xs font-medium">Añadir Imagen</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      accept="image/*"
-                    />
-                  </label>
-                </div>
+              
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl px-6 bg-background shadow-sm border-border/10 hover:border-primary/50 transition-all font-bold text-xs"
+                  onClick={saveDescription}
+                  disabled={isUpdatingDescription || localDescription === task.description}
+                >
+                  {isUpdatingDescription ? "Guardando..." : "Sincronizar Cambios"}
+                </Button>
               </div>
             </div>
 
-            <div className="space-y-6">
-              {/* Subtasks */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                  <ChevronRight className="h-4 w-4" /> Subtareas
-                </h3>
-
-                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                  {task.subtasks?.map((subtask) => (
-                    <div
-                      key={subtask.id}
-                      className="flex items-center justify-between p-3 rounded-xl border bg-card/50 hover:bg-card transition-colors group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => toggleSubtask(task.id, subtask.id)}
-                          className={cn(
-                            "transition-colors",
-                            subtask.completed
-                              ? "text-green-500"
-                              : "text-muted-foreground hover:text-primary",
-                          )}
-                        >
-                          {subtask.completed ? (
-                            <CheckCircle2 className="h-5 w-5" />
-                          ) : (
-                            <Circle className="h-5 w-5" />
-                          )}
-                        </button>
-                        <span
-                          className={cn(
-                            "text-sm transition-all",
-                            subtask.completed &&
-                              "line-through text-muted-foreground opacity-70",
-                          )}
-                        >
-                          {subtask.title}
-                        </span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 h-8 w-8 text-destructive"
-                        onClick={() => deleteSubtask(task.id, subtask.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+            {/* Subtasks - REORGANIZED FOR BETTER UX */}
+            <div className="space-y-5">
+              <div className="flex items-center justify-between bg-muted/20 p-4 rounded-2xl border border-border/5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
+                    <ListChecks className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-foreground">
+                      Subtareas Operativas
+                    </h3>
+                    <p className="text-[10px] text-muted-foreground font-medium">
+                      {task.subtasks?.filter(s => s.completed).length} de {task.subtasks?.length} completadas
+                    </p>
+                  </div>
                 </div>
+                <div className="flex -space-x-2">
+                   {/* Team visual feedback */}
+                   {task.collaborators?.slice(0, 3).map((c: any) => (
+                      <Avatar key={c.id} className="h-6 w-6 border-2 border-background shadow-sm">
+                        <AvatarImage src={c.user.image} />
+                        <AvatarFallback className="text-[8px] font-black">{c.user.name?.[0]}</AvatarFallback>
+                      </Avatar>
+                   ))}
+                   {task.collaborators && task.collaborators.length > 3 && (
+                     <div className="h-6 w-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px] font-black">
+                       +{task.collaborators.length - 3}
+                     </div>
+                   )}
+                </div>
+              </div>
 
-                <form onSubmit={handleAddSubtask} className="relative mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {task.subtasks?.map((subtask) => (
+                  <div
+                    key={subtask.id}
+                    className={cn(
+                      "flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group",
+                      subtask.completed 
+                        ? "bg-green-500/5 border-green-500/20 opacity-80" 
+                        : "bg-background border-border/10 hover:border-primary/40 hover:shadow-md"
+                    )}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <button
+                        onClick={() => toggleSubtask(task.id, subtask.id)}
+                        className={cn(
+                          "w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all",
+                          subtask.completed
+                            ? "bg-green-500 border-green-500 text-white"
+                            : "border-muted-foreground/30 hover:border-primary text-transparent"
+                        )}
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <span className={cn(
+                        "text-sm font-semibold transition-all",
+                        subtask.completed && "line-through text-muted-foreground/60"
+                      )}>
+                        {subtask.title}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 h-8 w-8 text-destructive hover:bg-destructive/10 rounded-xl transition-all"
+                      onClick={() => deleteSubtask(task.id, subtask.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                <form onSubmit={handleAddSubtask} className="md:col-span-2 relative mt-2 group">
                   <Input
-                    placeholder="Nueva subtarea..."
-                    className="pr-10 rounded-xl"
+                    placeholder="¿Cuál es el siguiente paso?"
+                    className="h-14 pl-5 pr-14 rounded-2xl bg-muted/20 border-border/10 focus-visible:ring-primary/20 transition-all font-medium text-sm"
                     value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
                     disabled={isAddingSubtask}
                   />
                   <Button
                     type="submit"
-                    size="sm"
-                    className="absolute right-1 top-1 h-8 w-8 p-0 rounded-lg shadow-none"
+                    className="absolute right-2 top-2 h-10 w-10 p-0 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all"
                     disabled={!newSubtaskTitle.trim() || isAddingSubtask}
                   >
                     {isAddingSubtask ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-5 w-5" />
                     )}
                   </Button>
                 </form>
               </div>
+            </div>
 
-              {/* Configuración Detallada */}
-              <div className="rounded-2xl border bg-muted/30 p-6 space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                  Configuración
-                </h3>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2 px-1">
-                      <Folder size={12} /> Proyecto
-                    </label>
-                    <Select
-                      value={task.projectId}
-                      onValueChange={handleProjectChange}
-                    >
-                      <SelectTrigger className="h-9 rounded-xl bg-card border-none shadow-sm text-xs">
-                        <SelectValue placeholder="Sin proyecto" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-none shadow-xl">
-                        {projects.map((p) => (
-                          <SelectItem
-                            key={p.id}
-                            value={p.id}
-                            className="text-xs"
-                          >
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            {/* Attachments - REFINED GRID */}
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
+                    <ImageIcon className="h-4 w-4" />
                   </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2 px-1">
-                      <Layout size={12} /> Estado
-                    </label>
-                    <Select
-                      value={task.status}
-                      onValueChange={(val) =>
-                        handleStatusChange(val as TaskStatus)
-                      }
-                    >
-                      <SelectTrigger className="h-9 rounded-xl bg-card border-none shadow-sm text-xs">
-                        <SelectValue placeholder="Estado" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-none shadow-xl text-xs">
-                        <SelectItem value="TODO">Para Hacer</SelectItem>
-                        <SelectItem value="IN_PROGRESS">En Proceso</SelectItem>
-                        <SelectItem value="DONE">Finalizado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2 px-1">
-                      <Flag size={12} /> Prioridad
-                    </label>
-                    <Select
-                      value={task.priority}
-                      onValueChange={(val) =>
-                        handlePriorityChange(val as Priority)
-                      }
-                    >
-                      <SelectTrigger className="h-9 rounded-xl bg-card border-none shadow-sm text-xs">
-                        <SelectValue placeholder="Prioridad" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-none shadow-xl text-xs">
-                        <SelectItem value="low">Baja</SelectItem>
-                        <SelectItem value="medium">Media</SelectItem>
-                        <SelectItem value="high">Alta</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2 px-1">
-                      <Calendar size={12} /> Vencimiento
-                    </label>
-                    <Input
-                      type="date"
-                      value={
-                        task.dueDate
-                          ? new Date(task.dueDate).toISOString().split("T")[0]
-                          : ""
-                      }
-                      onChange={handleDueDateChange}
-                      className="h-9 rounded-xl bg-card border-none shadow-sm text-xs"
-                    />
-                  </div>
+                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-foreground">
+                    Recursos Visuales
+                  </h3>
                 </div>
+                <label className="cursor-pointer">
+                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 transition-all">
+                    {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                    {isUploading ? "Procesando..." : "Subir Imagen"}
+                  </div>
+                </label>
+              </div>
 
-                <div className="pt-4 border-t border-border/10">
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-4">
-                    <span>Creada</span>
-                    <span className="font-mono">
-                      {format(new Date(task.createdAt), "dd/MM/yyyy HH:mm")}
-                    </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {task.attachments?.map((attachment, index) => (
+                  <div
+                    key={attachment.id}
+                    className="group relative aspect-square rounded-2xl border-none overflow-hidden bg-muted/30 cursor-zoom-in shadow-sm hover:shadow-xl transition-all duration-300"
+                    onClick={() => setGalleryIndex(index)}
+                  >
+                    <img
+                      src={attachment.url}
+                      alt={attachment.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-sm">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/40 border-none text-white backdrop-blur-md"
+                        onClick={(e) => { e.stopPropagation(); setGalleryIndex(index); }}
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        className="w-9 h-9 rounded-xl shadow-lg border-none"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await deleteAttachment(task.id, attachment.id);
+                            toast.success("Imagen eliminada");
+                          } catch (error) {
+                            toast.error("Error");
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-primary font-bold uppercase tracking-widest hover:underline cursor-pointer group">
-                    <Paperclip className="h-3 w-3 group-hover:rotate-12 transition-transform" />
-                    Compartir Tarea
+                ))}
+                
+                <label className="group border-2 border-dashed border-border/20 rounded-2xl flex flex-col items-center justify-center gap-3 p-4 text-muted-foreground/50 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-300 aspect-square cursor-pointer">
+                  <div className="w-12 h-12 rounded-full bg-muted/50 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
+                    <CloudUpload className="h-6 w-6" />
                   </div>
+                  <span className="text-[9px] font-black uppercase tracking-widest">Añadir Archivo</span>
+                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                </label>
+              </div>
+            </div>
+
+            {/* Team / Collaborators Section - INTEGRATED */}
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-muted/50 to-muted/10 border border-border/10 space-y-6">
+               <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-foreground">
+                    Equipo en esta Tarea
+                  </h3>
                 </div>
               </div>
+
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="flex -space-x-3">
+                  {task.collaborators?.map((c: any) => (
+                    <div key={c.id} className="relative group">
+                      <Avatar className="h-12 w-12 border-4 border-background shadow-xl transform transition-transform group-hover:-translate-y-2">
+                        <AvatarImage src={c.user.image} />
+                        <AvatarFallback className="text-sm font-black bg-primary/10 text-primary uppercase">
+                          {c.user.name?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black text-[8px] text-white px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        {c.user.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="relative group flex-1 max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input
+                    placeholder="Sumar colaborador..."
+                    value={query}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="pl-10 h-11 rounded-2xl bg-background border-none shadow-sm text-sm focus-visible:ring-1 focus-visible:ring-primary/20"
+                  />
+                  {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />}
+                </div>
+              </div>
+
+              {results.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-4">
+                  {results.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between p-3 bg-background rounded-2xl shadow-sm border border-border/5">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8 rounded-xl">
+                          <AvatarImage src={user.image} />
+                          <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-[10px] font-bold">
+                            {user.name?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <p className="text-xs font-bold">{user.name}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 rounded-xl hover:bg-primary/10 hover:text-primary text-muted-foreground"
+                        onClick={() => handleAddCollaborator(user.email)}
+                        disabled={task.collaborators?.some((c) => c.userId === user.id)}
+                      >
+                        <UserPlus size={16} />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </DialogContent>
+
+      {/* Image Gallery Modal */}
+      <Dialog
+        open={galleryIndex !== null}
+        onOpenChange={(open) => !open && setGalleryIndex(null)}
+      >
+        <DialogContent className="max-w-7xl h-[90vh] p-0 overflow-hidden border-none bg-black/95 flex flex-col items-center justify-center [&>button]:hidden">
+          <DialogTitle className="sr-only">Galería de Imágenes</DialogTitle>
+          {galleryIndex !== null &&
+            task.attachments &&
+            task.attachments[galleryIndex] && (
+              <div className="relative w-full h-full flex items-center justify-center p-4">
+                {/* Image */}
+                <img
+                  src={task.attachments[galleryIndex].url}
+                  alt={task.attachments[galleryIndex].name}
+                  className="max-w-full max-h-full object-contain animate-in zoom-in-95 duration-300"
+                />
+
+                {/* Top Controls */}
+                <div className="absolute top-6 right-6 flex items-center gap-3">
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="rounded-full bg-white/10 hover:bg-white/20 text-white border-none backdrop-blur-md"
+                    asChild
+                  >
+                    <a
+                      href={task.attachments[galleryIndex].url}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Download className="h-5 w-5" />
+                    </a>
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="rounded-full bg-white/10 hover:bg-white/20 text-white border-none backdrop-blur-md"
+                    onClick={() => setGalleryIndex(null)}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                {/* Navigation */}
+                {task.attachments.length > 1 && (
+                  <>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute left-6 top-1/2 -translate-y-1/2 rounded-full w-14 h-14 bg-white/10 hover:bg-white/20 text-white border-none backdrop-blur-md transition-all active:scale-90"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const prev =
+                          (galleryIndex - 1 + task.attachments.length) %
+                          task.attachments.length;
+                        setGalleryIndex(prev);
+                      }}
+                    >
+                      <ChevronLeft className="h-8 w-8" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute right-6 top-1/2 -translate-y-1/2 rounded-full w-14 h-14 bg-white/10 hover:bg-white/20 text-white border-none backdrop-blur-md transition-all active:scale-90"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const next = (galleryIndex + 1) % task.attachments.length;
+                        setGalleryIndex(next);
+                      }}
+                    >
+                      <ChevronRight className="h-8 w-8" />
+                    </Button>
+                  </>
+                )}
+
+                {/* Info Bottom */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-2 rounded-full bg-white/10 text-white text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-md">
+                  {galleryIndex + 1} / {task.attachments.length} —{" "}
+                  {task.attachments[galleryIndex].name}
+                </div>
+              </div>
+            )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
