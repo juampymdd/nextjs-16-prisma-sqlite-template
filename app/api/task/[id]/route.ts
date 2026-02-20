@@ -48,6 +48,26 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    // Validate assignee if provided
+    if (body.assigneeId) {
+      const projectWithMembers = await prisma.project.findFirst({
+        where: {
+          id: existingTask.projectId,
+          OR: [
+            { userId: body.assigneeId },
+            { collaborators: { some: { userId: body.assigneeId } } },
+          ],
+        },
+      });
+
+      if (!projectWithMembers) {
+        return NextResponse.json(
+          { error: "Assignee must be a project member" },
+          { status: 400 },
+        );
+      }
+    }
+
     const task = await prisma.task.update({
       where: { id },
       data: {

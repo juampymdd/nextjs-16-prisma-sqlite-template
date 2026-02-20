@@ -35,12 +35,14 @@ import {
   ListChecks,
   Check,
   CloudUpload,
+  MessageSquare,
 } from "lucide-react";
 import {
   useTaskStore,
   Task,
   TaskStatus,
   Priority,
+  Comment,
 } from "@/libs/store/useTaskStore";
 import { TiptapEditor } from "@/components/ui/TiptapEditor";
 import { Badge } from "@/components/ui/badge";
@@ -53,9 +55,11 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/libs/utils";
-import { format, addMinutes } from "date-fns";
+import { format, addMinutes, formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { TaskCountdown } from "./TaskCountdown";
+import { useEffect } from "react";
 
 interface TaskDetailDialogProps {
   task: Task;
@@ -79,6 +83,8 @@ export function TaskDetailDialog({
     deleteAttachment,
     addCollaborator,
     searchUsers,
+    addComment,
+    fetchComments,
   } = useTaskStore();
 
   const [localDescription, setLocalDescription] = useState(
@@ -90,21 +96,38 @@ export function TaskDetailDialog({
   const [results, setResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  const task = useMemo(() => {
+    return tasks.find((t) => t.id === taskProp.id) || taskProp;
+  }, [tasks, taskProp.id, taskProp]);
+
+  const selectedProject = useMemo(() => {
+    return projects.find((p) => p.id === task.projectId);
+  }, [projects, task.projectId]);
+
+  const currentProject = selectedProject;
+
+  useEffect(() => {
+    if (open && task.id) {
+      fetchComments(task.id);
+    }
+  }, [open, task.id, fetchComments]);
+
   const handleSearch = async (val: string) => {
     setQuery(val);
-    if (val.length < 3) {
-      setResults([]);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const users = await searchUsers(val);
-      setResults(users);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearching(false);
-    }
+    if (!currentProject) return;
+
+    // Filter project members
+    const members = [
+      { ...currentProject.user, id: currentProject.userId },
+      ...currentProject.collaborators.map((c) => ({ ...c.user, id: c.userId })),
+    ];
+
+    const filtered = members.filter(
+      (m) =>
+        m.name?.toLowerCase().includes(val.toLowerCase()) ||
+        m.email?.toLowerCase().includes(val.toLowerCase()),
+    );
+    setResults(filtered);
   };
 
   const handleAddCollaborator = async (email: string) => {
@@ -118,20 +141,12 @@ export function TaskDetailDialog({
     }
   };
 
-  const task = useMemo(() => {
-    return tasks.find((t) => t.id === taskProp.id) || taskProp;
-  }, [tasks, taskProp.id, taskProp]);
-
-  const selectedProject = useMemo(() => {
-    return projects.find((p) => p.id === task.projectId);
-  }, [projects, task.projectId]);
-
-  const currentProject = selectedProject; // Use the same variable for both
-
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   const completionPercentage = useMemo(() => {
     if (!task.subtasks || task.subtasks.length === 0) {
@@ -216,6 +231,18 @@ export function TaskDetailDialog({
     }
   };
 
+  const handleCommentSubmit = async () => {
+    if (!newComment.trim()) return;
+    setIsSubmittingComment(true);
+    try {
+      await addComment(task.id, newComment.trim());
+      setNewComment("");
+      toast.success("Comentario añadido");
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -279,9 +306,18 @@ export function TaskDetailDialog({
               <div className="flex items-center gap-4 mr-4">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap font-black uppercase tracking-widest">
                   <Calendar className="h-3.5 w-3.5" />
-                  {format(addMinutes(new Date(task.dueDate), new Date().getTimezoneOffset()), "dd/MM/yyyy")}
+                  {format(
+                    addMinutes(
+                      new Date(task.dueDate),
+                      new Date().getTimezoneOffset(),
+                    ),
+                    "dd/MM/yyyy",
+                  )}
                 </div>
-                <TaskCountdown dueDate={task.dueDate} completed={task.completed} />
+                <TaskCountdown
+                  dueDate={task.dueDate}
+                  completed={task.completed}
+                />
               </div>
             )}
             <Button
@@ -306,7 +342,9 @@ export function TaskDetailDialog({
                   <Folder className="h-3 w-3" />
                   <span>{currentProject?.name || "Sin Proyecto"}</span>
                   <span>•</span>
-                  <span>Creada el {format(new Date(task.createdAt), "dd/MM/yyyy")}</span>
+                  <span>
+                    Creada el {format(new Date(task.createdAt), "dd/MM/yyyy")}
+                  </span>
                 </div>
               </div>
               <div className="text-right">
@@ -318,7 +356,7 @@ export function TaskDetailDialog({
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <div className="h-3 w-full bg-muted/30 rounded-full overflow-hidden p-[2px] border border-border/5">
                 <div
@@ -332,14 +370,21 @@ export function TaskDetailDialog({
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 p-4 rounded-2xl bg-muted/20 border border-border/10">
               {/* Project */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Proyecto</label>
-                <Select value={task.projectId} onValueChange={handleProjectChange}>
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">
+                  Proyecto
+                </label>
+                <Select
+                  value={task.projectId}
+                  onValueChange={handleProjectChange}
+                >
                   <SelectTrigger className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm">
                     <SelectValue placeholder="Proyecto" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-none shadow-2xl">
                     {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -347,50 +392,88 @@ export function TaskDetailDialog({
 
               {/* Status */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Estado</label>
-                <Select value={task.status} onValueChange={(val) => handleStatusChange(val as TaskStatus)}>
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">
+                  Estado
+                </label>
+                <Select
+                  value={task.status}
+                  onValueChange={(val) => handleStatusChange(val as TaskStatus)}
+                >
                   <SelectTrigger className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-none shadow-2xl">
-                    <SelectItem value="TODO" className="text-xs">Para Hacer</SelectItem>
-                    <SelectItem value="IN_PROGRESS" className="text-xs">En Proceso</SelectItem>
-                    <SelectItem value="DONE" className="text-xs">Finalizado</SelectItem>
+                    <SelectItem value="TODO" className="text-xs">
+                      Para Hacer
+                    </SelectItem>
+                    <SelectItem value="IN_PROGRESS" className="text-xs">
+                      En Proceso
+                    </SelectItem>
+                    <SelectItem value="DONE" className="text-xs">
+                      Finalizado
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Priority */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Prioridad</label>
-                <Select value={task.priority} onValueChange={(val) => handlePriorityChange(val as Priority)}>
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">
+                  Prioridad
+                </label>
+                <Select
+                  value={task.priority}
+                  onValueChange={(val) => handlePriorityChange(val as Priority)}
+                >
                   <SelectTrigger className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-none shadow-2xl">
-                    <SelectItem value="low" className="text-xs">Baja</SelectItem>
-                    <SelectItem value="medium" className="text-xs">Media</SelectItem>
-                    <SelectItem value="high" className="text-xs">Alta</SelectItem>
+                    <SelectItem value="low" className="text-xs">
+                      Baja
+                    </SelectItem>
+                    <SelectItem value="medium" className="text-xs">
+                      Media
+                    </SelectItem>
+                    <SelectItem value="high" className="text-xs">
+                      Alta
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Assignee */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Asignado</label>
-                <Select value={task.assigneeId || "none"} onValueChange={handleAssigneeChange}>
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">
+                  Asignado
+                </label>
+                <Select
+                  value={task.assigneeId || "none"}
+                  onValueChange={handleAssigneeChange}
+                >
                   <SelectTrigger className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm">
                     <SelectValue placeholder="Sin asignar" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-none shadow-2xl">
-                    <SelectItem value="none" className="text-xs">Sin asignar</SelectItem>
+                    <SelectItem value="none" className="text-xs">
+                      Sin asignar
+                    </SelectItem>
                     {selectedProject?.user && (
-                      <SelectItem value={selectedProject.user.id} className="text-xs">
+                      <SelectItem
+                        value={selectedProject.user.id}
+                        className="text-xs"
+                      >
                         {selectedProject.user.name} (Tú)
                       </SelectItem>
                     )}
                     {selectedProject?.collaborators?.map((collab) => (
-                      <SelectItem key={collab.user.id} value={collab.user.id} className="text-xs">{collab.user.name}</SelectItem>
+                      <SelectItem
+                        key={collab.user.id}
+                        value={collab.user.id}
+                        className="text-xs"
+                      >
+                        {collab.user.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -398,11 +481,17 @@ export function TaskDetailDialog({
 
               {/* Due Date */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">Vencimiento</label>
+                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 px-1">
+                  Vencimiento
+                </label>
                 <div className="relative">
                   <Input
                     type="date"
-                    value={task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""}
+                    value={
+                      task.dueDate
+                        ? new Date(task.dueDate).toISOString().split("T")[0]
+                        : ""
+                    }
                     onChange={handleDueDateChange}
                     className="h-9 rounded-xl border-none bg-background/50 hover:bg-background transition-colors text-xs font-semibold shadow-sm pr-2"
                   />
@@ -423,9 +512,11 @@ export function TaskDetailDialog({
                     Descripción del Proyecto
                   </h3>
                 </div>
-                {isUpdatingDescription && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                {isUpdatingDescription && (
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                )}
               </div>
-              
+
               <div className="rounded-2xl border border-border/10 bg-muted/5 p-1 focus-within:border-primary/30 transition-colors">
                 <TiptapEditor
                   content={localDescription}
@@ -433,16 +524,21 @@ export function TaskDetailDialog({
                   placeholder="Escribe los detalles maestros de esta tarea..."
                 />
               </div>
-              
+
               <div className="flex justify-end">
                 <Button
                   variant="outline"
                   size="sm"
                   className="rounded-xl px-6 bg-background shadow-sm border-border/10 hover:border-primary/50 transition-all font-bold text-xs"
                   onClick={saveDescription}
-                  disabled={isUpdatingDescription || localDescription === task.description}
+                  disabled={
+                    isUpdatingDescription ||
+                    localDescription === task.description
+                  }
                 >
-                  {isUpdatingDescription ? "Guardando..." : "Sincronizar Cambios"}
+                  {isUpdatingDescription
+                    ? "Guardando..."
+                    : "Sincronizar Cambios"}
                 </Button>
               </div>
             </div>
@@ -459,23 +555,29 @@ export function TaskDetailDialog({
                       Subtareas Operativas
                     </h3>
                     <p className="text-[10px] text-muted-foreground font-medium">
-                      {task.subtasks?.filter(s => s.completed).length} de {task.subtasks?.length} completadas
+                      {task.subtasks?.filter((s) => s.completed).length} de{" "}
+                      {task.subtasks?.length} completadas
                     </p>
                   </div>
                 </div>
                 <div className="flex -space-x-2">
-                   {/* Team visual feedback */}
-                   {task.collaborators?.slice(0, 3).map((c: any) => (
-                      <Avatar key={c.id} className="h-6 w-6 border-2 border-background shadow-sm">
-                        <AvatarImage src={c.user.image} />
-                        <AvatarFallback className="text-[8px] font-black">{c.user.name?.[0]}</AvatarFallback>
-                      </Avatar>
-                   ))}
-                   {task.collaborators && task.collaborators.length > 3 && (
-                     <div className="h-6 w-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px] font-black">
-                       +{task.collaborators.length - 3}
-                     </div>
-                   )}
+                  {/* Team visual feedback */}
+                  {task.collaborators?.slice(0, 3).map((c: any) => (
+                    <Avatar
+                      key={c.id}
+                      className="h-6 w-6 border-2 border-background shadow-sm"
+                    >
+                      <AvatarImage src={c.user.image} />
+                      <AvatarFallback className="text-[8px] font-black">
+                        {c.user.name?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {task.collaborators && task.collaborators.length > 3 && (
+                    <div className="h-6 w-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px] font-black">
+                      +{task.collaborators.length - 3}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -485,9 +587,9 @@ export function TaskDetailDialog({
                     key={subtask.id}
                     className={cn(
                       "flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group",
-                      subtask.completed 
-                        ? "bg-green-500/5 border-green-500/20 opacity-80" 
-                        : "bg-background border-border/10 hover:border-primary/40 hover:shadow-md"
+                      subtask.completed
+                        ? "bg-green-500/5 border-green-500/20 opacity-80"
+                        : "bg-background border-border/10 hover:border-primary/40 hover:shadow-md",
                     )}
                   >
                     <div className="flex items-center gap-4 flex-1">
@@ -497,15 +599,18 @@ export function TaskDetailDialog({
                           "w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all",
                           subtask.completed
                             ? "bg-green-500 border-green-500 text-white"
-                            : "border-muted-foreground/30 hover:border-primary text-transparent"
+                            : "border-muted-foreground/30 hover:border-primary text-transparent",
                         )}
                       >
                         <Check className="h-4 w-4" />
                       </button>
-                      <span className={cn(
-                        "text-sm font-semibold transition-all",
-                        subtask.completed && "line-through text-muted-foreground/60"
-                      )}>
+                      <span
+                        className={cn(
+                          "text-sm font-semibold transition-all",
+                          subtask.completed &&
+                            "line-through text-muted-foreground/60",
+                        )}
+                      >
                         {subtask.title}
                       </span>
                     </div>
@@ -520,7 +625,10 @@ export function TaskDetailDialog({
                   </div>
                 ))}
 
-                <form onSubmit={handleAddSubtask} className="md:col-span-2 relative mt-2 group">
+                <form
+                  onSubmit={handleAddSubtask}
+                  className="md:col-span-2 relative mt-2 group"
+                >
                   <Input
                     placeholder="¿Cuál es el siguiente paso?"
                     className="h-14 pl-5 pr-14 rounded-2xl bg-muted/20 border-border/10 focus-visible:ring-primary/20 transition-all font-medium text-sm"
@@ -555,9 +663,18 @@ export function TaskDetailDialog({
                   </h3>
                 </div>
                 <label className="cursor-pointer">
-                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                  />
                   <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 transition-all">
-                    {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                    {isUploading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Plus className="h-3 w-3" />
+                    )}
                     {isUploading ? "Procesando..." : "Subir Imagen"}
                   </div>
                 </label>
@@ -580,7 +697,10 @@ export function TaskDetailDialog({
                         size="icon"
                         variant="secondary"
                         className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/40 border-none text-white backdrop-blur-md"
-                        onClick={(e) => { e.stopPropagation(); setGalleryIndex(index); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setGalleryIndex(index);
+                        }}
                       >
                         <Maximize2 className="h-4 w-4" />
                       </Button>
@@ -603,26 +723,33 @@ export function TaskDetailDialog({
                     </div>
                   </div>
                 ))}
-                
+
                 <label className="group border-2 border-dashed border-border/20 rounded-2xl flex flex-col items-center justify-center gap-3 p-4 text-muted-foreground/50 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-300 aspect-square cursor-pointer">
                   <div className="w-12 h-12 rounded-full bg-muted/50 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
                     <CloudUpload className="h-6 w-6" />
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-widest">Añadir Archivo</span>
-                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">
+                    Añadir Archivo
+                  </span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                  />
                 </label>
               </div>
             </div>
 
             {/* Team / Collaborators Section - INTEGRATED */}
             <div className="p-6 rounded-3xl bg-gradient-to-br from-muted/50 to-muted/10 border border-border/10 space-y-6">
-               <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
                     <Users className="h-4 w-4" />
                   </div>
                   <h3 className="text-sm font-black uppercase tracking-[0.2em] text-foreground">
-                    Equipo en esta Tarea
+                    Asignados a esta tarea
                   </h3>
                 </div>
               </div>
@@ -647,19 +774,25 @@ export function TaskDetailDialog({
                 <div className="relative group flex-1 max-w-xs">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
-                    placeholder="Sumar colaborador..."
+                    placeholder="Miembros del proyecto..."
                     value={query}
                     onChange={(e) => handleSearch(e.target.value)}
+                    onFocus={() => handleSearch(query)}
                     className="pl-10 h-11 rounded-2xl bg-background border-none shadow-sm text-sm focus-visible:ring-1 focus-visible:ring-primary/20"
                   />
-                  {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />}
+                  {isSearching && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
+                  )}
                 </div>
               </div>
 
               {results.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-4 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
                   {results.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-3 bg-background rounded-2xl shadow-sm border border-border/5">
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-3 bg-background rounded-2xl shadow-sm border border-border/5"
+                    >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8 rounded-xl">
                           <AvatarImage src={user.image} />
@@ -667,14 +800,19 @@ export function TaskDetailDialog({
                             {user.name?.[0]}
                           </AvatarFallback>
                         </Avatar>
-                        <p className="text-xs font-bold">{user.name}</p>
+                        <div className="flex flex-col">
+                          <p className="text-xs font-bold truncate max-w-[100px]">{user.name}</p>
+                          <p className="text-[9px] text-muted-foreground truncate max-w-[100px]">{user.email}</p>
+                        </div>
                       </div>
                       <Button
                         size="sm"
                         variant="ghost"
                         className="h-8 w-8 p-0 rounded-xl hover:bg-primary/10 hover:text-primary text-muted-foreground"
                         onClick={() => handleAddCollaborator(user.email)}
-                        disabled={task.collaborators?.some((c) => c.userId === user.id)}
+                        disabled={task.collaborators?.some(
+                          (c) => c.userId === user.id,
+                        )}
                       >
                         <UserPlus size={16} />
                       </Button>
@@ -682,6 +820,82 @@ export function TaskDetailDialog({
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Comments Section */}
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-muted/50 to-muted/10 border border-border/10 space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
+                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-foreground">
+                  Comentarios
+                </h3>
+              </div>
+
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
+                {task.comments?.map((comment) => (
+                  <div key={comment.id} className="flex gap-4">
+                    <Avatar className="h-10 w-10 rounded-xl flex-shrink-0">
+                      <AvatarImage src={comment.user.image} />
+                      <AvatarFallback className="rounded-xl bg-primary/10 text-primary font-bold">
+                        {comment.user.name?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold">{comment.user.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatDistanceToNow(new Date(comment.createdAt), {
+                            addSuffix: true,
+                            locale: es,
+                          })}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-background rounded-2xl rounded-tl-none border border-border/10 text-sm">
+                        {comment.content}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {(!task.comments || task.comments.length === 0) && (
+                  <div className="text-center py-8 text-muted-foreground/40 space-y-2">
+                    <MessageSquare size={32} className="mx-auto opacity-20" />
+                    <p className="text-xs font-bold uppercase tracking-widest">Sin comentarios aún</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 items-end pt-2">
+                <div className="flex-1 relative">
+                  <textarea
+                    placeholder="Escribe un comentario..."
+                    className="w-full bg-background border-none rounded-2xl p-4 text-sm focus:ring-1 focus:ring-primary/20 transition-all resize-none h-20 shadow-inner"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleCommentSubmit();
+                      }
+                    }}
+                  />
+                </div>
+                <Button 
+                  onClick={handleCommentSubmit} 
+                  disabled={!newComment.trim() || isSubmittingComment}
+                  className="rounded-2xl h-20 w-20 flex-col gap-2 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20"
+                >
+                  {isSubmittingComment ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Plus size={18} />
+                      Sumar
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -755,7 +969,8 @@ export function TaskDetailDialog({
                       className="absolute right-6 top-1/2 -translate-y-1/2 rounded-full w-14 h-14 bg-white/10 hover:bg-white/20 text-white border-none backdrop-blur-md transition-all active:scale-90"
                       onClick={(e) => {
                         e.stopPropagation();
-                        const next = (galleryIndex + 1) % task.attachments.length;
+                        const next =
+                          (galleryIndex + 1) % task.attachments.length;
                         setGalleryIndex(next);
                       }}
                     >

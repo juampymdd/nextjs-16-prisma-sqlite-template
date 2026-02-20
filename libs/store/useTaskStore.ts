@@ -86,6 +86,21 @@ export interface Task {
   subtasks: Subtask[];
   attachments: Attachment[];
   collaborators: TaskCollaborator[];
+  comments: Comment[];
+}
+
+export interface Comment {
+  id: string;
+  content: string;
+  taskId: string;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
+  createdAt: string;
 }
 
 interface TaskState {
@@ -115,6 +130,10 @@ interface TaskState {
     updates: Partial<ProjectColumn>,
   ) => Promise<void>;
   deleteColumn: (projectId: string, columnId: string) => Promise<void>;
+  reorderColumns: (
+    projectId: string,
+    columns: ProjectColumn[],
+  ) => Promise<void>;
 
   // Tasks (All project-dependent)
   fetchTasks: () => Promise<void>;
@@ -150,6 +169,10 @@ interface TaskState {
     attachment: { url: string; name: string; type: AttachmentType },
   ) => Promise<void>;
   deleteAttachment: (taskId: string, attachmentId: string) => Promise<void>;
+
+  // Comments
+  addComment: (taskId: string, content: string) => Promise<void>;
+  fetchComments: (taskId: string) => Promise<void>;
 }
 
 export const useTaskStore = create<TaskState>()(
@@ -248,6 +271,29 @@ export const useTaskStore = create<TaskState>()(
           }
         } catch (error) {
           console.error("Error deleting column:", error);
+        }
+      },
+
+      reorderColumns: async (projectId: string, columns: ProjectColumn[]) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === projectId ? { ...p, columns } : p,
+          ),
+        }));
+
+        try {
+          // Update positions in backend
+          await Promise.all(
+            columns.map((col, index) =>
+              fetch(`/api/project/${projectId}/column/${col.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ position: index }),
+                headers: { "Content-Type": "application/json" },
+              }),
+            ),
+          );
+        } catch (error) {
+          console.error("Error reordering columns:", error);
         }
       },
 
@@ -726,7 +772,43 @@ export const useTaskStore = create<TaskState>()(
           console.error("Error deleting attachment:", error);
         }
       },
-    }),
+      addComment: async (taskId: string, content: string) => {
+        try {
+          const res = await fetch(`/api/task/${taskId}/comment`, {
+            method: "POST",
+            body: JSON.stringify({ content }),
+            headers: { "Content-Type": "application/json" },
+          });
+          if (res.ok) {
+            const newComment = await res.json();
+            set((state) => ({
+              tasks: state.tasks.map((t) =>
+                t.id === taskId
+                  ? { ...t, comments: [...(t.comments || []), newComment] }
+                  : t,
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error("Error adding comment:", error);
+        }
+      },
+
+      fetchComments: async (taskId: string) => {
+        try {
+          const res = await fetch(`/api/task/${taskId}/comment`);
+          if (res.ok) {
+            const comments = await res.json();
+            set((state) => ({
+              tasks: state.tasks.map((t) =>
+                t.id === taskId ? { ...t, comments } : t,
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error("Error fetching comments:", error);
+        }
+      },    }),
     {
       name: "task-storage",
       partialize: (state) => ({

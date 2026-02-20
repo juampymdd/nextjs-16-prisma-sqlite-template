@@ -73,19 +73,23 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 
   const handleSearch = async (val: string) => {
     setQuery(val);
-    if (val.length < 3) {
-      setResults([]);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const users = await searchUsers(val);
-      setResults(users);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearching(false);
-    }
+    if (!task.project) return;
+
+    // Filter project members
+    const members = [
+      { id: task.project.userId, ...task.project.user },
+      ...(task.project.collaborators || []).map((c: any) => ({
+        id: c.userId,
+        ...c.user,
+      })),
+    ].filter((m) => m.id); // Ensure user object exists
+
+    const filtered = members.filter(
+      (m) =>
+        m.name?.toLowerCase().includes(val.toLowerCase()) ||
+        m.email?.toLowerCase().includes(val.toLowerCase()),
+    );
+    setResults(filtered);
   };
 
   const handleAddCollaborator = async (email: string) => {
@@ -160,9 +164,19 @@ export const TaskItem = ({ task }: TaskItemProps) => {
                   }`}
                 >
                   <AlertCircle size={10} />
-                  Vence: {format(addMinutes(new Date(task.dueDate), new Date().getTimezoneOffset()), "dd/MM/yyyy")}
+                  Vence:{" "}
+                  {format(
+                    addMinutes(
+                      new Date(task.dueDate),
+                      new Date().getTimezoneOffset(),
+                    ),
+                    "dd/MM/yyyy",
+                  )}
                 </div>
-                <TaskCountdown dueDate={task.dueDate} completed={task.completed} />
+                <TaskCountdown
+                  dueDate={task.dueDate}
+                  completed={task.completed}
+                />
               </div>
             )}
             {task.subtasks && task.subtasks.length > 0 && (
@@ -339,19 +353,32 @@ export const TaskItem = ({ task }: TaskItemProps) => {
             <Trash2 size={18} />
           </Button>
 
-          <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
+          <Dialog
+            open={isConfirmDeleteOpen}
+            onOpenChange={setIsConfirmDeleteOpen}
+          >
             <DialogContent className="sm:max-w-md rounded-[2rem]">
               <DialogHeader>
                 <DialogTitle>¿Eliminar tarea?</DialogTitle>
                 <DialogDescription className="py-2">
-                  Estás a punto de eliminar la tarea <strong>"{task.title}"</strong>. Esta acción no se puede deshacer.
+                  Estás a punto de eliminar la tarea{" "}
+                  <strong>"{task.title}"</strong>. Esta acción no se puede
+                  deshacer.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2 sm:justify-end">
-                <Button variant="ghost" onClick={() => setIsConfirmDeleteOpen(false)} className="rounded-xl">
+                <Button
+                  variant="ghost"
+                  onClick={() => setIsConfirmDeleteOpen(false)}
+                  className="rounded-xl"
+                >
                   Cancelar
                 </Button>
-                <Button variant="destructive" onClick={handleConfirmDelete} className="rounded-xl font-bold">
+                <Button
+                  variant="destructive"
+                  onClick={handleConfirmDelete}
+                  className="rounded-xl font-bold"
+                >
                   Eliminar
                 </Button>
               </DialogFooter>

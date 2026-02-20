@@ -118,7 +118,10 @@ export const SortableTask = ({ task }: Props) => {
             </span>
 
             {task.dueDate && (
-              <TaskCountdown dueDate={task.dueDate} completed={task.completed} />
+              <TaskCountdown
+                dueDate={task.dueDate}
+                completed={task.completed}
+              />
             )}
 
             <div className="flex items-center gap-2 ml-auto text-muted-foreground">

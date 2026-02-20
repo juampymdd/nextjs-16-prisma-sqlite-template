@@ -104,7 +104,7 @@ export default function ProjectDetail() {
           >
             <ArrowLeft className="mr-2 h-3 w-3" /> Volver a proyectos
           </Button>
-          
+
           <div className="flex items-center gap-6">
             <div className="w-16 h-16 rounded-[1.8rem] bg-gradient-to-tr from-primary/20 to-primary/5 flex items-center justify-center text-primary shadow-sm border border-primary/10">
               <Folder size={32} />
@@ -134,7 +134,8 @@ export default function ProjectDetail() {
               size="sm"
               className={cn(
                 "h-11 rounded-[1.4rem] px-7 font-black text-[11px] uppercase tracking-widest transition-all",
-                view === "list" && "bg-background shadow-xl scale-100 border border-border/5"
+                view === "list" &&
+                  "bg-background shadow-xl scale-100 border border-border/5",
               )}
               onClick={() => setView("list")}
             >
@@ -145,7 +146,8 @@ export default function ProjectDetail() {
               size="sm"
               className={cn(
                 "h-11 rounded-[1.4rem] px-7 font-black text-[11px] uppercase tracking-widest transition-all",
-                view === "kanban" && "bg-background shadow-xl scale-100 border border-border/5"
+                view === "kanban" &&
+                  "bg-background shadow-xl scale-100 border border-border/5",
               )}
               onClick={() => setView("kanban")}
             >
@@ -157,7 +159,7 @@ export default function ProjectDetail() {
 
           <div className="flex items-center gap-3">
             <CollaboratorManager project={project} />
-            
+
             <div className="h-10 w-px bg-border/20 mx-1 hidden sm:block" />
 
             <Button
@@ -165,9 +167,9 @@ export default function ProjectDetail() {
               size="sm"
               className={cn(
                 "rounded-3xl font-black text-[11px] uppercase tracking-[0.2em] h-12 px-10 transition-all duration-500",
-                !project.completed 
-                  ? "bg-green-500 hover:bg-green-600 text-white shadow-xl shadow-green-500/20 border-none" 
-                  : "bg-muted/40 text-muted-foreground border-border/20 hover:bg-muted/60"
+                !project.completed
+                  ? "bg-green-500 hover:bg-green-600 text-white shadow-xl shadow-green-500/20 border-none"
+                  : "bg-muted/40 text-muted-foreground border-border/20 hover:bg-muted/60",
               )}
               onClick={handleToggleComplete}
             >
@@ -177,13 +179,16 @@ export default function ProjectDetail() {
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
                 <Button className="rounded-3xl h-12 px-10 shadow-2xl shadow-primary/30 font-black text-[11px] uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 transition-all active:scale-95 group border-none">
-                  <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-500" /> Nueva Tarea
+                  <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-500" />{" "}
+                  Nueva Tarea
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl p-0 overflow-hidden border-none shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] rounded-[2.5rem]">
                 <DialogHeader className="sr-only">
                   <DialogTitle>Nueva Tarea</DialogTitle>
-                  <DialogDescription>Formulario para crear una nueva tarea</DialogDescription>
+                  <DialogDescription>
+                    Formulario para crear una nueva tarea
+                  </DialogDescription>
                 </DialogHeader>
                 <CreateTaskForm
                   onSuccess={() => setCreateOpen(false)}
@@ -212,17 +217,29 @@ export default function ProjectDetail() {
             <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-4">
               <Trash2 size={32} />
             </div>
-            <DialogTitle className="text-2xl font-black">¿Eliminar proyecto?</DialogTitle>
+            <DialogTitle className="text-2xl font-black">
+              ¿Eliminar proyecto?
+            </DialogTitle>
             <DialogDescription className="py-2 text-base">
-              Estás a punto de eliminar <strong>"{project.name}"</strong>. <br/>
-              Esta acción eliminará todas las tareas y archivos asociados permanentemente.
+              Estás a punto de eliminar <strong>"{project.name}"</strong>.{" "}
+              <br />
+              Esta acción eliminará todas las tareas y archivos asociados
+              permanentemente.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-3 sm:justify-end mt-6">
-            <Button variant="ghost" onClick={() => setIsDeleteConfirmOpen(false)} className="rounded-2xl px-6 h-12 font-bold">
+            <Button
+              variant="ghost"
+              onClick={() => setIsDeleteConfirmOpen(false)}
+              className="rounded-2xl px-6 h-12 font-bold"
+            >
               No, cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDelete} className="rounded-2xl px-8 h-12 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-destructive/20">
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              className="rounded-2xl px-8 h-12 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-destructive/20"
+            >
               Sí, eliminar ahora
             </Button>
           </DialogFooter>

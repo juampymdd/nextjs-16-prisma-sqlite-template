@@ -12,6 +12,11 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import { KanbanColumn } from "@/components/kanban/KanbanColumn";
 import { SortableTask } from "@/components/kanban/SortableTask";
 import { createPortal } from "react-dom";
@@ -33,8 +38,9 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
-  const { updateTask, addColumn } = useTaskStore();
+  const { updateTask, addColumn, reorderColumns } = useTaskStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeColumn, setActiveColumn] = useState<ProjectColumn | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
 
@@ -61,6 +67,11 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
   const handleDragStart = (event: DragStartEvent) => {
     if (event.active.data.current?.type === "Task") {
       setActiveTask(event.active.data.current.task);
+      return;
+    }
+    if (event.active.data.current?.type === "Column") {
+      setActiveColumn(event.active.data.current.column);
+      return;
     }
   };
 
@@ -74,8 +85,11 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
     if (activeId === overId) return;
 
     const isActiveATask = active.data.current?.type === "Task";
+    const isActiveAColumn = active.data.current?.type === "Column";
     const isOverATask = over.data.current?.type === "Task";
     const isOverAColumn = over.data.current?.type === "Column";
+
+    if (isActiveAColumn) return;
 
     if (!isActiveATask) return;
 
@@ -120,6 +134,8 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveTask(null);
+    setActiveColumn(null);
+
     const { active, over } = event;
     if (!over) return;
 
@@ -127,6 +143,17 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
     const overId = over.id;
 
     if (activeId === overId) return;
+
+    const isActiveAColumn = active.data.current?.type === "Column";
+    if (isActiveAColumn) {
+      const activeIndex = columns.findIndex((col) => col.id === activeId);
+      const overIndex = columns.findIndex((col) => col.id === overId);
+
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const newColumns = arrayMove(columns, activeIndex, overIndex);
+        reorderColumns(projectId, newColumns);
+      }
+    }
   };
 
   return (
@@ -138,13 +165,18 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-6 items-start">
-          {columns.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              tasks={sortedTasks.filter((t) => t.columnId === column.id)}
-            />
-          ))}
+          <SortableContext
+            items={columns.map((col) => col.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            {columns.map((column) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                tasks={sortedTasks.filter((t) => t.columnId === column.id)}
+              />
+            ))}
+          </SortableContext>
 
           <div className="min-w-[320px] max-w-[320px] pt-[48px]">
             <Button
@@ -168,6 +200,15 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
               {activeTask ? (
                 <div className="opacity-90 scale-105 rotate-1 shadow-2xl transition-all">
                   <SortableTask task={activeTask} />
+                </div>
+              ) : activeColumn ? (
+                <div className="opacity-90 scale-105 rotate-1 shadow-2xl transition-all">
+                  <KanbanColumn
+                    column={activeColumn}
+                    tasks={sortedTasks.filter(
+                      (t) => t.columnId === activeColumn.id,
+                    )}
+                  />
                 </div>
               ) : null}
             </DragOverlay>,

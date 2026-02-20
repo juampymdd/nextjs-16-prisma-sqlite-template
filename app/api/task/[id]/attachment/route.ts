@@ -45,7 +45,8 @@ export async function POST(
     const base64Image = base64Data.split(";base64,").pop();
     let buffer = Buffer.from(base64Image, "base64");
     let fileName = `${uuidv4()}-${name}`;
-    let contentType = type === "image" ? "image/png" : "application/octet-stream";
+    let contentType =
+      type === "image" ? "image/png" : "application/octet-stream";
 
     // 4. Optimize image with Sharp if it's an image
     if (type === "image") {
@@ -54,14 +55,17 @@ export async function POST(
           .resize(1920, 1080, { fit: "inside", withoutEnlargement: true })
           .webp({ quality: 80 })
           .toBuffer();
-        
+
         buffer = Buffer.from(optimizedBuffer);
         // Update fileName extension to webp
         const originalName = name.substring(0, name.lastIndexOf(".")) || name;
         fileName = `${uuidv4()}-${originalName}.webp`;
         contentType = "image/webp";
       } catch (sharpError) {
-        console.warn("Sharp optimization failed, using original image:", sharpError);
+        console.warn(
+          "Sharp optimization failed, using original image:",
+          sharpError,
+        );
       }
     }
 

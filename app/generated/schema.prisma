@@ -14,44 +14,43 @@ datasource db {
 
 // user model
 /**
-task belong to different users
-*/
-
+ * task belong to different users
+ */
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  tasks         Task[]    @relation("Creator")
-  assignedTasks Task[]    @relation("Assignee")
-  sessions      Session[]
-  accounts      Account[]
-  collaborations TaskCollaborator[]
-  projects      Project[]
+  id                    String                @id @default(cuid())
+  name                  String
+  email                 String                @unique
+  emailVerified         Boolean               @default(false)
+  image                 String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  tasks                 Task[]                @relation("Creator")
+  assignedTasks         Task[]                @relation("Assignee")
+  sessions              Session[]
+  accounts              Account[]
+  collaborations        TaskCollaborator[]
+  projects              Project[]
   projectCollaborations ProjectCollaborator[]
-  comments      Comment[]
+  comments              Comment[]
 
   @@map("user")
 }
 
 model Project {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  color       String?   @default("#3b82f6")
-  completed   Boolean   @default(false)
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tasks       Task[]
+  id            String                @id @default(cuid())
+  name          String
+  description   String?
+  color         String?               @default("#3b82f6")
+  completed     Boolean               @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  userId        String
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks         Task[]
   collaborators ProjectCollaborator[]
-  columns     ProjectColumn[]
+  columns       ProjectColumn[]
 
   @@map("project")
 }
@@ -128,28 +127,28 @@ model Verification {
 }
 
 model Task {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  completed   Boolean   @default(false)
-  completedAt DateTime?
-  status      String    @default("TODO") // TODO, IN_PROGRESS, DONE
-  priority    String    @default("medium") // low, medium, high
-  position    Int       @default(0)
-  dueDate     DateTime?
-  createdAt   DateTime  @default(now())
-  userId      String
-  user        User      @relation("Creator", fields: [userId], references: [id])
-  assigneeId  String?
-  assignee    User?     @relation("Assignee", fields: [assigneeId], references: [id])
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  columnId    String?
-  column      ProjectColumn? @relation(fields: [columnId], references: [id], onDelete: SetNull)
-  subtasks    Subtask[]
-  attachments Attachment[]
+  id            String             @id @default(cuid())
+  title         String
+  description   String?
+  completed     Boolean            @default(false)
+  completedAt   DateTime?
+  status        String             @default("TODO") // TODO, IN_PROGRESS, DONE
+  priority      String             @default("medium") // low, medium, high
+  position      Int                @default(0)
+  dueDate       DateTime?
+  createdAt     DateTime           @default(now())
+  userId        String
+  user          User               @relation("Creator", fields: [userId], references: [id])
+  assigneeId    String?
+  assignee      User?              @relation("Assignee", fields: [assigneeId], references: [id])
+  projectId     String
+  project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  columnId      String?
+  column        ProjectColumn?     @relation(fields: [columnId], references: [id], onDelete: SetNull)
+  subtasks      Subtask[]
+  attachments   Attachment[]
   collaborators TaskCollaborator[]
-  comments    Comment[]
+  comments      Comment[]
 
   @@map("task")
 }
@@ -171,7 +170,7 @@ model Attachment {
   id        String   @id @default(cuid())
   url       String
   name      String
-  type      String   // image, file, etc.
+  type      String // image, file, etc.
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

@@ -4,6 +4,7 @@ import { auth } from "@/app/libs/auth";
 import { headers } from "next/headers";
 
 export async function GET() {
+  // Force recompile: last check 2026-02-20
   console.log("GET /api/task - ENTER");
   let session;
   try {
@@ -52,7 +53,25 @@ export async function GET() {
       include: {
         subtasks: true,
         attachments: true,
-        project: true,
+        project: {
+          include: {
+            collaborators: {
+              include: {
+                user: {
+                  select: { id: true, name: true, image: true, email: true },
+                },
+              },
+            },
+          },
+        },
+        comments: {
+          include: {
+            user: {
+              select: { id: true, name: true, image: true, email: true },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        },
         assignee: {
           select: {
             id: true,
@@ -118,6 +137,26 @@ export async function POST(request: Request) {
     }
 
     const isCompleted = body.completed || body.status === "DONE" || false;
+
+    // Validate assignee if provided
+    if (body.assigneeId) {
+      const projectWithMembers = await prisma.project.findFirst({
+        where: {
+          id: body.projectId,
+          OR: [
+            { userId: body.assigneeId },
+            { collaborators: { some: { userId: body.assigneeId } } },
+          ],
+        },
+      });
+
+      if (!projectWithMembers) {
+        return NextResponse.json(
+          { error: "Assignee must be a project member" },
+          { status: 400 },
+        );
+      }
+    }
 
     const task = await prisma.task.create({
       data: {

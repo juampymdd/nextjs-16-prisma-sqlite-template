@@ -54,7 +54,12 @@ const MenuBar = ({ editor }: { editor: any }) => {
       if (url === "") {
         editor.chain().focus().extendMarkRange("link").unsetLink().run();
       } else {
-        editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+        editor
+          .chain()
+          .focus()
+          .extendMarkRange("link")
+          .setLink({ href: url })
+          .run();
       }
     }
     setPromptOpen(false);

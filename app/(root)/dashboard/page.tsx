@@ -100,7 +100,8 @@ const DashboardHome = () => {
       label: "Tareas Totales",
       value: totalTasks,
       icon: ListTodo,
-      color: "from-purple-500/20 to-purple-500/5 text-purple-500 border-purple-500/10",
+      color:
+        "from-purple-500/20 to-purple-500/5 text-purple-500 border-purple-500/10",
     },
     ...(assignedTasks.length > 0
       ? [
@@ -108,7 +109,8 @@ const DashboardHome = () => {
             label: "Asignadas a mí",
             value: assignedTasks.length,
             icon: Users,
-            color: "from-orange-500/20 to-orange-500/5 text-orange-500 border-orange-500/10",
+            color:
+              "from-orange-500/20 to-orange-500/5 text-orange-500 border-orange-500/10",
           },
         ]
       : []),
@@ -116,7 +118,8 @@ const DashboardHome = () => {
       label: "Completadas",
       value: completedTasks,
       icon: CheckCircle2,
-      color: "from-green-500/20 to-green-500/5 text-green-500 border-green-500/10",
+      color:
+        "from-green-500/20 to-green-500/5 text-green-500 border-green-500/10",
     },
   ];
 
@@ -131,7 +134,7 @@ const DashboardHome = () => {
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
           </p>
         </div>
-        
+
         <div className="flex items-center gap-4 bg-muted/20 p-2 rounded-2xl border border-border/10 backdrop-blur-md">
           <div className="flex items-center gap-3 px-4 py-2 bg-background/50 rounded-xl border border-white/5 shadow-sm">
             <Flame className="text-orange-500 h-4 w-4 animate-pulse" />
@@ -153,13 +156,25 @@ const DashboardHome = () => {
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
                   {stat.label}
                 </p>
-                <h3 className="text-4xl font-black tabular-nums">{stat.value}</h3>
+                <h3 className="text-4xl font-black tabular-nums">
+                  {stat.value}
+                </h3>
               </div>
-              <div className={cn("p-4 rounded-2xl bg-gradient-to-tr border shadow-sm group-hover:scale-110 transition-transform duration-500", stat.color)}>
+              <div
+                className={cn(
+                  "p-4 rounded-2xl bg-gradient-to-tr border shadow-sm group-hover:scale-110 transition-transform duration-500",
+                  stat.color,
+                )}
+              >
                 <stat.icon size={26} strokeWidth={2.5} />
               </div>
               {/* Decorative gradient blur */}
-              <div className={cn("absolute -bottom-8 -right-8 w-24 h-24 blur-3xl rounded-full opacity-10 transition-opacity group-hover:opacity-20", stat.color.split(' ')[2])} />
+              <div
+                className={cn(
+                  "absolute -bottom-8 -right-8 w-24 h-24 blur-3xl rounded-full opacity-10 transition-opacity group-hover:opacity-20",
+                  stat.color.split(" ")[2],
+                )}
+              />
             </CardContent>
           </Card>
         ))}
@@ -293,7 +308,10 @@ const DashboardHome = () => {
               key={project.id}
               className="group overflow-hidden border-border/10 rounded-[2.5rem] bg-gradient-to-br from-card to-muted/20 shadow-sm hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-2 transition-all duration-700 h-full flex flex-col"
             >
-              <Link href={`/dashboard/projects/${project.id}`} className="flex flex-col h-full p-8">
+              <Link
+                href={`/dashboard/projects/${project.id}`}
+                className="flex flex-col h-full p-8"
+              >
                 <div className="flex items-start justify-between mb-8">
                   <div className="p-3.5 rounded-2xl bg-gradient-to-tr from-primary/20 to-primary/5 text-primary shadow-sm border border-primary/10 group-hover:scale-110 transition-transform duration-500">
                     <Folder size={24} />
@@ -345,16 +363,16 @@ const DashboardHome = () => {
                           <div
                             className={cn(
                               "w-2 h-2 rounded-full transition-all duration-500",
-                              task.completed 
-                                ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" 
+                              task.completed
+                                ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"
                                 : "bg-muted-foreground/20 group-hover/task:bg-primary/40",
                             )}
                           />
                           <span
                             className={cn(
                               "truncate transition-all duration-500",
-                              task.completed 
-                                ? "line-through opacity-30 text-muted-foreground" 
+                              task.completed
+                                ? "line-through opacity-30 text-muted-foreground"
                                 : "group-hover/task:translate-x-1 group-hover/task:text-foreground",
                             )}
                           >
@@ -364,7 +382,10 @@ const DashboardHome = () => {
                       ))}
                       {project.recentTasks.length === 0 && (
                         <div className="h-20 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/10 rounded-2xl group-hover:border-primary/10 transition-all">
-                          <Plus size={14} className="text-muted-foreground/20 mb-1" />
+                          <Plus
+                            size={14}
+                            className="text-muted-foreground/20 mb-1"
+                          />
                           <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/20 italic">
                             Lista limpia
                           </span>
@@ -377,40 +398,40 @@ const DashboardHome = () => {
             </Card>
           ))}
         </div>
-          {projectsWithStats.length === 0 && (
-            <Card className="col-span-full border-dashed border-2 bg-transparent">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Folder size={48} className="text-muted-foreground/20 mb-4" />
-                <h3 className="text-lg font-bold">
-                  {searchQuery
-                    ? "No se encontraron proyectos"
-                    : "No tienes proyectos"}
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  {searchQuery
-                    ? "Intenta con otro término de búsqueda."
-                    : "Empieza creando tu primer proyecto para organizar tus tareas."}
-                </p>
-                {!searchQuery && (
-                  <Button asChild className="rounded-xl font-bold">
-                    <Link href="/dashboard/projects">Crear Proyecto</Link>
-                  </Button>
-                )}
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setSearchQuery("")}
-                    className="rounded-xl"
-                  >
-                    Limpiar búsqueda
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        {projectsWithStats.length === 0 && (
+          <Card className="col-span-full border-dashed border-2 bg-transparent">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <Folder size={48} className="text-muted-foreground/20 mb-4" />
+              <h3 className="text-lg font-bold">
+                {searchQuery
+                  ? "No se encontraron proyectos"
+                  : "No tienes proyectos"}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery
+                  ? "Intenta con otro término de búsqueda."
+                  : "Empieza creando tu primer proyecto para organizar tus tareas."}
+              </p>
+              {!searchQuery && (
+                <Button asChild className="rounded-xl font-bold">
+                  <Link href="/dashboard/projects">Crear Proyecto</Link>
+                </Button>
+              )}
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setSearchQuery("")}
+                  className="rounded-xl"
+                >
+                  Limpiar búsqueda
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-2 border-border/40 bg-card/50 backdrop-blur-sm">
           <CardHeader>
             <div className="flex items-center justify-between">

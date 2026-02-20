@@ -28,18 +28,38 @@ export async function POST(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if task exists and user has permission (owner or already collaborator)
+    // Check if task exists and user has permission
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { collaborators: true },
+      include: {
+        collaborators: true,
+        project: {
+          include: {
+            collaborators: true,
+          },
+        },
+      },
     });
 
     if (
       !task ||
       (task.userId !== session.user.id &&
-        !task.collaborators.some((c) => c.userId === session.user.id))
+        !task.collaborators.some((c) => c.userId === session.user.id) &&
+        task.project.userId !== session.user.id)
     ) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    // CONSTRAINT: Only project collaborators or project owner can be added as task collaborators
+    const isProjectCollaborator =
+      task.project.userId === userToInvite.id ||
+      task.project.collaborators.some((c) => c.userId === userToInvite.id);
+
+    if (!isProjectCollaborator) {
+      return NextResponse.json(
+        { error: "Only project members can be assigned to tasks" },
+        { status: 400 },
+      );
     }
 
     const collaborator = await prisma.taskCollaborator.create({

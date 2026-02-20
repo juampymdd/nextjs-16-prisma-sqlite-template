@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
-  isPast, 
-  differenceInSeconds, 
+import {
+  isPast,
+  differenceInSeconds,
   intervalToDuration,
-  addMinutes
+  addMinutes,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { Clock } from "lucide-react";
@@ -22,8 +22,11 @@ export function TaskCountdown({ dueDate, completed }: TaskCountdownProps) {
 
   useEffect(() => {
     // Normalizamos la fecha para ignorar el desfase de UTC si viene de un input date
-    const target = addMinutes(new Date(dueDate), new Date().getTimezoneOffset());
-    
+    const target = addMinutes(
+      new Date(dueDate),
+      new Date().getTimezoneOffset(),
+    );
+
     const updateCountdown = () => {
       const now = new Date();
       if (isPast(target)) {
@@ -36,7 +39,7 @@ export function TaskCountdown({ dueDate, completed }: TaskCountdownProps) {
       setCritical(diffInSec < 3600 * 24); // Crítico si falta menos de 24h
 
       const duration = intervalToDuration({ start: now, end: target });
-      
+
       let timeString = "";
       if (duration.days && duration.days > 0) {
         timeString = `${duration.days}d ${duration.hours}h ${duration.minutes}m`;
@@ -45,12 +48,12 @@ export function TaskCountdown({ dueDate, completed }: TaskCountdownProps) {
       } else {
         timeString = `${duration.minutes}m ${duration.seconds}s`;
       }
-      
+
       setTimeLeft(timeString);
     };
 
     updateCountdown();
-    const interval = setInterval(updateCountdown, 1000); 
+    const interval = setInterval(updateCountdown, 1000);
 
     return () => clearInterval(interval);
   }, [dueDate]);
@@ -58,15 +61,20 @@ export function TaskCountdown({ dueDate, completed }: TaskCountdownProps) {
   if (completed) return null;
 
   return (
-    <div className={cn(
-      "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 shadow-sm",
-      critical 
-        ? "bg-red-600 text-white animate-pulse ring-2 ring-red-600/20" 
-        : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-    )}>
-      <Clock size={11} strokeWidth={3} className={cn(critical ? "animate-spin-slow" : "")} />
+    <div
+      className={cn(
+        "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 shadow-sm",
+        critical
+          ? "bg-red-600 text-white animate-pulse ring-2 ring-red-600/20"
+          : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20",
+      )}
+    >
+      <Clock
+        size={11}
+        strokeWidth={3}
+        className={cn(critical ? "animate-spin-slow" : "")}
+      />
       <span className="tabular-nums">{timeLeft}</span>
     </div>
   );
 }
-

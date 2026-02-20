@@ -46,13 +46,22 @@ export async function GET(
       tasks: {
         include: {
           subtasks: true,
+          attachments: true,
+          comments: {
+            include: {
+              user: {
+                select: { id: true, name: true, image: true, email: true },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
           assignee: {
             select: { id: true, name: true, image: true, email: true },
           },
           collaborators: {
             include: {
               user: {
-                select: { id: true, name: true, image: true },
+                select: { id: true, name: true, image: true, email: true },
               },
             },
           },

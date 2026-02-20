@@ -13,6 +13,14 @@ async function test() {
       include: {
         subtasks: true,
         attachments: true,
+        comments: {
+          include: {
+            user: {
+              select: { id: true, name: true, image: true, email: true },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        },
         collaborators: {
           include: {
             user: {

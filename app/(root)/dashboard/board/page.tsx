@@ -16,7 +16,14 @@ import {
 import { CreateTaskForm } from "@/components/tasks";
 
 export default function BoardPage() {
-  const { tasks, fetchTasks, projects, fetchProjects, activeProjectId, setActiveProject } = useTaskStore();
+  const {
+    tasks,
+    fetchTasks,
+    projects,
+    fetchProjects,
+    activeProjectId,
+    setActiveProject,
+  } = useTaskStore();
   const [isClient, setIsClient] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -33,8 +40,10 @@ export default function BoardPage() {
     }
   }, [isClient, activeProjectId, projects, setActiveProject]);
 
-  const activeProject = projects.find(p => p.id === activeProjectId);
-  const projectTasks = tasks.filter(t => !activeProjectId || t.projectId === activeProjectId);
+  const activeProject = projects.find((p) => p.id === activeProjectId);
+  const projectTasks = tasks.filter(
+    (t) => !activeProjectId || t.projectId === activeProjectId,
+  );
 
   if (!isClient) return null;
 
@@ -48,7 +57,7 @@ export default function BoardPage() {
           <div className="flex items-center gap-2 pl-1">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
-              {activeProject 
+              {activeProject
                 ? `Enfoque: ${activeProject.name}`
                 : "Selecciona un proyecto para empezar"}
             </p>
@@ -60,13 +69,15 @@ export default function BoardPage() {
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 whitespace-nowrap">
               Proyecto activo
             </span>
-            <select 
+            <select
               className="bg-background/50 border border-white/5 rounded-xl px-4 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer shadow-inner"
               value={activeProjectId || ""}
               onChange={(e) => setActiveProject(e.target.value)}
             >
               {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
             </select>
           </div>
@@ -75,11 +86,12 @@ export default function BoardPage() {
 
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button 
-                className="rounded-2xl h-12 px-8 shadow-xl shadow-primary/20 font-black text-[11px] uppercase tracking-[0.15em] bg-primary hover:bg-primary/90 transition-all active:scale-95 group" 
+              <Button
+                className="rounded-2xl h-12 px-8 shadow-xl shadow-primary/20 font-black text-[11px] uppercase tracking-[0.15em] bg-primary hover:bg-primary/90 transition-all active:scale-95 group"
                 disabled={!activeProjectId}
               >
-                <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-500" /> Nueva Tarea
+                <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-500" />{" "}
+                Nueva Tarea
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl p-0 overflow-hidden border-none bg-transparent">
@@ -94,10 +106,10 @@ export default function BoardPage() {
       </div>
 
       {activeProject ? (
-        <KanbanBoard 
-          tasks={projectTasks} 
-          columns={activeProject.columns || []} 
-          projectId={activeProject.id} 
+        <KanbanBoard
+          tasks={projectTasks}
+          columns={activeProject.columns || []}
+          projectId={activeProject.id}
         />
       ) : (
         <div className="flex flex-col items-center justify-center p-20 border-2 border-dashed rounded-3xl">
